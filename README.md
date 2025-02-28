@@ -1,0 +1,1 @@
+https://liberatedpixelcup.github.io/Universal-LPC-Spritesheet-Character-Generator/#?body=Body_color_amber&head=Human_male_amber&sex=male&shadow=none_Shadow&beard=Basic_Beard_ginger&ears=Big_ears_amber&wings=Bat_Wings_strawberry&legs=Armour_iron

@@ -1,0 +1,81 @@
+import os
+from autogen_core import (
+    MessageContext,
+    RoutedAgent,
+    message_handler,
+    type_subscription,
+)
+from autogen_core.models import SystemMessage, UserMessage, ModelInfo
+from Message import TaskMessage, builder_topic
+from autogen_ext.models.openai import OpenAIChatCompletionClient
+from pydantic import BaseModel
+from utils.log import log
+
+
+class File(BaseModel):
+    file: str
+    content: str
+
+
+class Work(BaseModel):
+    files: list[File]
+
+
+@type_subscription(topic_type=builder_topic)
+class Builder(RoutedAgent):
+    def __init__(
+        self, api_key: str, model: str, base_url: str, model_info: ModelInfo
+    ) -> None:
+        super().__init__("A software developer")
+        self._system_message = SystemMessage(
+            content=(
+                "You are an elite software engineer that writes code using node.js and javascript.\n"
+                "You are given a list of files you need to write as well as some instructions about \n"
+                "how the files you're tasked with fit into the bigger program.\n"
+                "You are only responsible for your task, but the team task is provided for context\n"
+                "ALWAYS ensure that you output the full contents of the original file and modifications. This file\n"
+                "is going to be hot reloaded back into the website so it must be working."
+            )
+        )
+        self._model_client = OpenAIChatCompletionClient(
+            model=model,
+            api_key=api_key,
+            response_format=Work,
+            base_url=base_url,
+            model_info=model_info,
+        )
+
+    @message_handler
+    async def handle_message(self, message: TaskMessage, ctx: MessageContext) -> None:
+        prompt_files = file_strings(message)
+        prompt = f"Team task: {message.context}; Your Task: {message.task}\nFiles: {prompt_files}"
+        log(source=self.id, content=prompt)
+        llm_result = await self._model_client.create(
+            messages=[
+                self._system_message,
+                UserMessage(content=prompt, source=self.id.key),
+            ],
+        )
+        response = llm_result.content
+        assert isinstance(response, str)
+        work = Work.model_validate_json(response)
+
+        for item in work.files:
+            log(source=self.id, content=f"{item.file}\n{item.content}")
+            os.makedirs(os.path.dirname(item.file), exist_ok=True)
+
+            with open(item.file, "w") as file:
+                file.write(item.content)
+
+
+def read_file_to_string(file_path):
+    """Reads the contents of a file into a string."""
+    with open(file_path, "r", encoding="utf-8") as file:
+        return file.read()
+
+
+def file_strings(task: TaskMessage):
+    s = ""
+    for file in task.files:
+        s += f"{file}\n{read_file_to_string(file)}\n\n"
+    return s
