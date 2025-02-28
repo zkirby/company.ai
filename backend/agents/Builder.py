@@ -23,9 +23,7 @@ class Work(BaseModel):
 
 @type_subscription(topic_type=builder_topic)
 class Builder(RoutedAgent):
-    def __init__(
-        self, api_key: str, model: str, base_url: str, model_info: ModelInfo
-    ) -> None:
+    def __init__(self, api_key: str, model: str, base_url: str, model_info: ModelInfo) -> None:
         super().__init__("A software developer")
         self._system_message = SystemMessage(
             content=(
@@ -47,25 +45,27 @@ class Builder(RoutedAgent):
 
     @message_handler
     async def handle_message(self, message: TaskMessage, ctx: MessageContext) -> None:
-        prompt_files = file_strings(message)
+        """Handles incoming messages and delegates tasks to the model client."""
+        prompt_files = file_strings(message)  # Prepare the files for the prompt.
         prompt = f"Team task: {message.context}; Your Task: {message.task}\nFiles: {prompt_files}"
-        log(source=self.id, content=prompt)
+        log(source=self.id, content=prompt)  # Log the prompt being sent to the model client.
         llm_result = await self._model_client.create(
             messages=[
                 self._system_message,
                 UserMessage(content=prompt, source=self.id.key),
             ],
         )
-        response = llm_result.content
-        assert isinstance(response, str)
-        work = Work.model_validate_json(response)
+        response = llm_result.content  # Get the content of the model's response.
+        assert isinstance(response, str)  # Ensure the response is a string.
+        work = Work.model_validate_json(response)  # Validate the response format.
 
         for item in work.files:
             log(source=self.id, content=f"{item.file}\n{item.content}")
+            # Ensure the directory exists before writing the file.
             os.makedirs(os.path.dirname(item.file), exist_ok=True)
 
             with open(item.file, "w") as file:
-                file.write(item.content)
+                file.write(item.content)  # Write the content to the specified file.
 
 
 def read_file_to_string(file_path):
@@ -75,7 +75,8 @@ def read_file_to_string(file_path):
 
 
 def file_strings(task: TaskMessage):
+    """Creates a string representation of all files in task messages."""
     s = ""
     for file in task.files:
-        s += f"{file}\n{read_file_to_string(file)}\n\n"
+        s += f"{file}\n{read_file_to_string(file)}\n\n"  # Append each file's content to the string.
     return s
