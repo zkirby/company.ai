@@ -69,8 +69,11 @@ class Builder(RoutedAgent):
 
 def read_file_to_string(file_path):
     """Reads the contents of a file into a string."""
-    with open(file_path, "r", encoding="utf-8") as file:
-        return file.read()
+    try:
+        with open(file_path, "r", encoding="utf-8") as file:
+            return file.read()
+    except FileNotFoundError:
+        return "EMPTY_FILE"
 
 
 def file_strings(task: TaskMessage):

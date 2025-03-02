@@ -22,11 +22,10 @@ function Home() {
 
   // Parse interaction messages with proper error handling
   const parseInteraction = useCallback((data: string) => {
+    const [agentName, type, payload] = data.split("[$]");
     try {
-      if (data.includes("[$]interact:")) {
-        const [agentName, message] = data.split("[$]");
-        const targetAgent = message.replace("interact:", "").trim();
-        return { agentName, targetAgent };
+      if (type === "interact") {
+        return { agentName, targetAgent: payload };
       }
       return null;
     } catch (error) {
@@ -42,11 +41,13 @@ function Home() {
 
       // Check if it's an interaction message
       const interaction = parseInteraction(data);
+      console.log(interaction);
       if (interaction) {
         const { agentName, targetAgent } = interaction;
 
         // Update agent position to move towards target
         setAgents((prev) => {
+          console.log(prev);
           // Only process if both agents exist
           if (!prev[agentName] || !prev[targetAgent]) return prev;
 
@@ -63,7 +64,7 @@ function Home() {
       } else {
         // Regular message
         try {
-          const [agent, message] = data.split("[$]");
+          const [agent, , message] = data.split("[$]");
 
           // Add agent to the list if it doesn't exist yet
           setAgents((prev) => {
@@ -204,24 +205,25 @@ function Home() {
 
   return (
     <Container>
-      <CanvasContainer>
-        <Canvas ref={canvasRef} width={400} height={400} />
-      </CanvasContainer>
+      <MainPanel>
+        <CanvasContainer>
+          <Canvas ref={canvasRef} width={800} height={500} />
+        </CanvasContainer>
+        <ControlArea>
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask something..."
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          />
+          <Button onClick={sendMessage}>Submit</Button>
+          <Button onClick={toggleCollapse}>
+            {isCollapsed ? "Expand" : "Collapse"}
+          </Button>
+        </ControlArea>
+      </MainPanel>
 
-      <ControlArea>
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask something..."
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        />
-        <Button onClick={sendMessage}>Submit</Button>
-        <Button onClick={toggleCollapse}>
-          {isCollapsed ? "Expand" : "Collapse"}
-        </Button>
-      </ControlArea>
-
-      {!isCollapsed && (
+      <SidePanel>
         <MessagesContainer>
           {messages.map(([name, say], index) => (
             <MessageBlock key={`${name}-${index}`} className="message-display">
@@ -234,18 +236,32 @@ function Home() {
             </MessageBlock>
           ))}
         </MessagesContainer>
-      )}
+      </SidePanel>
     </Container>
   );
 }
 
 const Container = styled.div`
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
+  gap: 2rem;
   padding: 2rem;
   font-family: Arial, sans-serif;
+  height: 100vh;
+`;
+
+const MainPanel = styled.div`
+  width: 66%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const SidePanel = styled.div`
+  width: 33%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  overflow-y: auto;
 `;
 
 const CanvasContainer = styled.div`
@@ -256,6 +272,8 @@ const CanvasContainer = styled.div`
 
 const Canvas = styled.canvas`
   background-color: #f8f8f8;
+  width: 100%;
+  height: 100%;
 `;
 
 const ControlArea = styled.div`
@@ -270,7 +288,7 @@ const Input = styled.textarea`
   border-radius: 5px;
   resize: vertical;
   min-height: 100px;
-  width: 400px;
+  width: 100%;
 `;
 
 const Button = styled.button`
@@ -286,37 +304,36 @@ const Button = styled.button`
 `;
 
 const MessagesContainer = styled.div`
-  width: 60%;
-  max-width: 600px;
+  width: 100%;
   text-align: left;
+  flex-grow: 1;
+  overflow-y: auto;
 `;
 
 const MessageBlock = styled.div`
-  margin-top: 1rem;
-  padding: 0.5rem;
-  border-bottom: 1px solid #eee;
-  transition: transform 0.2s ease-in-out;
-  &:hover {
-    transform: scale(1.02);
-  }
+  margin-bottom: 0.5rem;
+  border: 1px solid #eee;
+  border-radius: 10px;
 `;
 
 const MessageHeader = styled.div`
   background-color: #b2e6f2; /* pastel blue */
   border-radius: 10px 10px 0 0;
-  display: flex;
-  justify-content: space-between;
-  padding: 10px;
-  cursor: pointer;
+  padding: 5px 10px;
+  h5 {
+    margin: 0;
+  }
 `;
 
 const MessageContent = styled.div`
-  padding: 10px;
+  padding: 5px 10px;
   color: #333;
   background-color: #e1f5fe; /* pastel light blue */
   border-radius: 0 0 10px 10px;
-  max-height: 300px;
-  overflow-y: auto;
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+  }
 `;
 
 export default Home;

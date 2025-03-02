@@ -72,7 +72,7 @@ class Delegator(RoutedAgent):
 
         # Iterate through each task and publish messages for task assignments.
         for [i, task] in enumerate(delegators.tasks):
-            log(source=self.id, content=f"{self.id.key}{i}", contentType=ContentType.INTERACTION)
+            log(source=self.id, content=f"{self.id.key}{i}", contentType=ContentType.INTERACT)
             log(source=self.id, content=task.overview, contentType=ContentType.MESSAGE)
             log(source=self.id, content=task.files, contentType=ContentType.MESSAGE)
             await self.publish_message(
