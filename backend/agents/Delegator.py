@@ -35,15 +35,16 @@ class Delegator(RoutedAgent):
                 "Include important context about what the task is for each developer."
             )
         )
-        # Initialize the OpenAI client with model and API details.
+        model_config = SUPPORTED_MODELS[model]["config"]
         self._model_client = OpenAIChatCompletionClient(
-            model=model,
-            api_key=api_key,
+            model=model_config.model,
+            api_key=model_config.api_key,
             response_format=DelegatorList,
-            base_url=base_url,
-            model_info=model_info,
+            base_url=model_config.base_url,
+            model_info=model_config.model_info,
         )
-        global_store[self.id] = {"tokens": 0, "model": model, "cost": 0}
+        self.model = model
+        global_store[self.id] = {"input_tokens": 0, "output_tokens": 0, "model": model, "cost": 0}
 
     @message_handler  # Decorator to handle incoming messages.
     async def handle_message(self, message: Message, ctx: MessageContext) -> None:
@@ -66,6 +67,11 @@ class Delegator(RoutedAgent):
 
         delegators = llm_result.from_orm(DelegatorList)
         log(source=self.id, content=response)  # Log the delegators parsed from the model's response.
+        global_store[self.id]["input_tokens"] += llm_result.usage.input_tokens
+        global_store[self.id]["output_tokens"] += llm_result.usage.output_tokens
+        cost = calculate_cost(llm_result.usage, self.model)
+        global_store[self.id]["cost"] += cost
+        log(source=self.id, content=json.dumps({ "cost": cost, "tokens": llm_result.usage.input_tokens + llm_result.usage.output_tokens }), contentType=ContentType.INFO)
 
         # Iterate through each task and publish messages for task assignments.
         for [i, task] in enumerate(delegators.tasks):

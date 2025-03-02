@@ -65,14 +65,14 @@ async def websocket_endpoint(websocket: WebSocket):
     await Delegator.register(
         runtime,
         type=delegator_topic,
-        factory=lambda: Delegator(api_key, model, base_url, model_info),
+        factory=lambda: Delegator(api_key, model),
     )
 
     # Register the Builder with the runtime, using the provided factory method
     await Builder.register(
         runtime,
         type=builder_topic,
-        factory=lambda: Builder(api_key, model, base_url, model_info),
+        factory=lambda: Builder(api_key, model),
     )
 
     try:
@@ -99,12 +99,5 @@ async def websocket_endpoint(websocket: WebSocket):
 def get_value(key: str):
     return {"value": global_store.get(key, "Not found")}
 
-@app.post("/set/{key}/{value}")
-def set_value(key: str, value: str):
-    global_store[key] = value
-    return {"message": "Value set successfully"}
 
 
-# total tokens used.
-# current model being used.
-# total cost based on the model.

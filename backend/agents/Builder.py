@@ -1,4 +1,5 @@
 import os
+import json
 from autogen_core import (
     MessageContext,
     RoutedAgent,
@@ -34,14 +35,15 @@ class Builder(RoutedAgent):
                 "is going to be hot reloaded back into the website so it must be working."
             )
         )
+        model_config = SUPPORTED_MODELS[model]["config"]
         self._model_client = OpenAIChatCompletionClient(
-            model=model,
-            api_key=api_key,
+            model=model_config.model,
+            api_key=model_config.api_key,
             response_format=Work,
-            base_url=base_url,
-            model_info=model_info,
+            base_url=model_config.base_url,
+            model_info=model_config.model_info,
         )
-        global_store[self.id] = {"tokens": 0, "model": model, "cost": 0}
+        global_store[self.id] = {"input_tokens": 0, "output_tokens": 0, "model": model, "cost": 0}
 
     @message_handler
     async def handle_message(self, message: TaskMessage, ctx: MessageContext) -> None:
@@ -55,9 +57,13 @@ class Builder(RoutedAgent):
                 UserMessage(content=prompt, source=self.id.key),
             ],
         )
-        response = llm_result.content  # Get the content of the model's response.
-        assert isinstance(response, str)  # Ensure the response is a string.
-        work = Work.model_validate_json(response)  # Validate the response format.
+        work = llm_result.from_orm(Work)  # Get the content of the model's response.
+
+        global_store[self.id]["input_tokens"] += llm_result.usage.input_tokens
+        global_store[self.id]["output_tokens"] += llm_result.usage.output_tokens
+        cost = calculate_cost(llm_result.usage, self.model)
+        global_store[self.id]["cost"] += cost
+        log(source=self.id, content=json.dumps({ "cost": cost, "tokens": llm_result.usage.input_tokens + llm_result.usage.output_tokens }), contentType=ContentType.INFO)
 
         for item in work.files:
             log(source=self.id, content=item.content, contentType=ContentType.MESSAGE)

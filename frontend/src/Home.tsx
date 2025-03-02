@@ -13,11 +13,12 @@ const INTERACTION_DISTANCE = 60; // Distance between interacting agents
 function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<[string, string, string][]>([]);
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
     new Set()
   );
+  const [totalTokens, setTotalTokens] = useState(0);
+  const [totalCost, setTotalCost] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -112,6 +113,17 @@ function Home() {
             [agent, type, `Agent created as ${payload}`],
             ...prev,
           ]);
+          break;
+        }
+
+        case "info": {
+          try {
+            const info = JSON.parse(payload);
+            setTotalTokens((prev) => prev + info.tokens);
+            setTotalCost((prev) => prev + info.cost);
+          } catch (error) {
+            console.error("Error processing info message:", error);
+          }
           break;
         }
 
@@ -262,10 +274,6 @@ function Home() {
     }
   };
 
-  const toggleCollapse = () => {
-    setIsCollapsed((prev) => !prev);
-  };
-
   const toggleMessageExpand = (messageId: string) => {
     setExpandedMessages((prev) => {
       const newSet = new Set(prev);
@@ -298,6 +306,10 @@ function Home() {
         <CanvasContainer>
           <Canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} />
         </CanvasContainer>
+        <UsageStats>
+          <div>Total Tokens: {totalTokens}</div>
+          <div>Total Cost: ${totalCost.toFixed(4)}</div>
+        </UsageStats>
         <ControlArea>
           <Input
             value={input}
@@ -306,9 +318,6 @@ function Home() {
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
           <Button onClick={sendMessage}>Submit</Button>
-          <Button onClick={toggleCollapse}>
-            {isCollapsed ? "Expand" : "Collapse"}
-          </Button>
         </ControlArea>
       </MainPanel>
 
@@ -373,7 +382,6 @@ const SidePanel = styled.div`
 const CanvasContainer = styled.div`
   border: 2px solid #ccc;
   border-radius: 5px;
-  margin-bottom: 20px;
 `;
 
 const Canvas = styled.canvas`
@@ -381,6 +389,17 @@ const Canvas = styled.canvas`
   width: 100%;
   height: auto;
   aspect-ratio: ${CANVAS_WIDTH} / ${CANVAS_HEIGHT};
+`;
+
+const UsageStats = styled.div`
+  display: flex;
+  gap: 20px;
+  font-weight: bold;
+  padding: 0.5rem;
+  background-color: #f0f0f0;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  color: #666;
 `;
 
 const ControlArea = styled.div`

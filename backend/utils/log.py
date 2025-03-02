@@ -13,6 +13,7 @@ class ContentType(Enum):
     MESSAGE = "message" 
     SYSTEM = "system"
     CREATE = "create"
+    INFO = "info"
 
 def log(source=str, content=str, contentType: ContentType = ContentType.MESSAGE):
     logger.info(f"{source}{DELIM}{contentType.value}{DELIM}{content}")
