@@ -41,11 +41,18 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
   useEffect(() => {
     const fetchAgentInfo = async () => {
       try {
-        const response = await fetch(`/info/${id}`);
+        const [key, type] = id.split("/");
+        const urlFriendlyId = `${type}|${key}`;
+        console.log(urlFriendlyId);
+        const response = await fetch(
+          `http://localhost:8000/info/${urlFriendlyId}`
+        );
+        console.log(response);
         if (!response.ok) {
           throw new Error("Failed to fetch agent info");
         }
         const data = await response.json();
+        console.log(data);
         setInfo(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");

@@ -121,7 +121,9 @@ function Home() {
         case "info": {
           try {
             const info = JSON.parse(payload);
-            setTotalTokens((prev) => prev + info.tokens);
+            setTotalTokens(
+              (prev) => prev + info.input_tokens + info.output_tokens
+            );
             setTotalCost((prev) => prev + info.cost);
           } catch (error) {
             console.error("Error processing info message:", error);

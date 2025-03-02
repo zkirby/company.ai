@@ -3,7 +3,6 @@ import logging
 import os
 import json
 from autogen_core import TRACE_LOGGER_NAME, SingleThreadedAgentRuntime, TopicId
-from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from agents.Delegator import Delegator
@@ -11,13 +10,8 @@ from agents.Builder import Builder
 from Message import Message, delegator_topic, builder_topic
 from utils.log import log, ContentType
 from store import global_store
-# Load environment variables from the .env.development file
-load_dotenv(".env.development")
 
-# Create an instance of the FastAPI application
 app = FastAPI()
-
-# Add CORS middleware to the app to allow cross-origin requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow requests from any origin
@@ -25,8 +19,7 @@ app.add_middleware(
     allow_methods=["*"],  # Allow any HTTP methods
     allow_headers=["*"],  # Allow any HTTP headers
 )
-
-clients: list[WebSocket] = []  # List to keep track of connected WebSocket clients
+clients: list[WebSocket] = [] 
 
 
 class WebSocketHandler(logging.Handler):
@@ -65,14 +58,14 @@ async def websocket_endpoint(websocket: WebSocket):
     await Delegator.register(
         runtime,
         type=delegator_topic,
-        factory=lambda: Delegator(api_key, model),
+        factory=lambda: Delegator(),
     )
 
     # Register the Builder with the runtime, using the provided factory method
     await Builder.register(
         runtime,
         type=builder_topic,
-        factory=lambda: Builder(api_key, model),
+        factory=lambda: Builder(),
     )
 
     try:
@@ -97,6 +90,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/info/{key}")
 def get_value(key: str):
-    return {"value": json.dumps(global_store.get(key, "Not found"))}
-
+    print(key, global_store)
+    return global_store.get(key, {"cost": 0, "model": "none", "input_tokens": 0, "output_tokens": 0})
 
