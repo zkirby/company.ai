@@ -10,7 +10,7 @@ from agents.Delegator import Delegator
 from agents.Builder import Builder
 from Message import Message, delegator_topic, builder_topic
 from utils.log import log, ContentType
-
+from store import global_store
 # Load environment variables from the .env.development file
 load_dotenv(".env.development")
 
@@ -25,20 +25,6 @@ app.add_middleware(
     allow_methods=["*"],  # Allow any HTTP methods
     allow_headers=["*"],  # Allow any HTTP headers
 )
-
-model = "gpt-4o-mini"  # Define the model name to be used
-# model = "llama3.2:latest"  # Alternative model option (commented out)
-api_key = os.getenv("OPENAPI_KEY")  # Retrieve API key from environment variables
-# api_key = "placeholder"  # Placeholder for API key (commented out)
-# model_info = {
-# "vision": False,
-# "function_calling": False,
-# "json_output": False,
-# "family": "unknown",
-# }
-model_info = None  # Placeholder for model information (currently not used)
-# base_url = "http://localhost:11434/v1"  # Base URL for API (commented out)
-base_url = None  # Placeholder for base URL (currently not used)
 
 clients: list[WebSocket] = []  # List to keep track of connected WebSocket clients
 
@@ -68,7 +54,6 @@ logger = logging.getLogger(
 )  # Get the logger instance with the TRACE_LOGGER_NAME
 logger.setLevel(logging.DEBUG)  # Set the logging level to DEBUG
 logger.addHandler(ws_handler)  # Add the WebSocket handler to the logger
-
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -109,3 +94,17 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         clients.remove(websocket)  # Remove the client on disconnection
         # await websocket.close()  # Close the WebSocket connection
+
+@app.get("/get/{key}")
+def get_value(key: str):
+    return {"value": global_store.get(key, "Not found")}
+
+@app.post("/set/{key}/{value}")
+def set_value(key: str, value: str):
+    global_store[key] = value
+    return {"message": "Value set successfully"}
+
+
+# total tokens used.
+# current model being used.
+# total cost based on the model.

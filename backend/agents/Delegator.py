@@ -43,10 +43,10 @@ class Delegator(RoutedAgent):
             base_url=base_url,
             model_info=model_info,
         )
+        global_store[self.id] = {"tokens": 0, "model": model, "cost": 0}
 
     @message_handler  # Decorator to handle incoming messages.
     async def handle_message(self, message: Message, ctx: MessageContext) -> None:
-        log(source=self.id, content=f"{self.id.type}", contentType=ContentType.CREATE)
         # Retrieve the list of files from the git project directory.
         files = crawl_git_project("~/Code/builtbyrobots/timemap")
         context = get_context_files("~/Code/builtbyrobots/timemap")
@@ -64,16 +64,12 @@ class Delegator(RoutedAgent):
             ],
         )
 
-        response = llm_result.content  # The model's response.
-        assert isinstance(response, str)  # Ensure the response is a string.
-
-        # Validate and parse the response into DelegatorList.
-        delegators = DelegatorList.model_validate_json(response)
+        delegators = llm_result.from_orm(DelegatorList)
         log(source=self.id, content=response)  # Log the delegators parsed from the model's response.
 
         # Iterate through each task and publish messages for task assignments.
         for [i, task] in enumerate(delegators.tasks):
-            log(source=self.id, content=f"{self.id.key}{i}", contentType=ContentType.INTERACT)
+            log(source=self.id, content=f"{builder_topic}/{self.id.key}{i}", contentType=ContentType.INTERACT)
             log(source=self.id, content=task.overview, contentType=ContentType.MESSAGE)
             log(source=self.id, content=task.files, contentType=ContentType.MESSAGE)
             await self.publish_message(
@@ -84,3 +80,4 @@ class Delegator(RoutedAgent):
                 ),
                 topic_id=TopicId(builder_topic, source=f"{self.id.key}{i}"),  # Unique topic ID for each task message.
             )
+        

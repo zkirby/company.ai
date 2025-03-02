@@ -8,6 +8,7 @@ const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 500;
 const AGENT_RADIUS = 10;
 const MARGIN = 10;
+const INTERACTION_DISTANCE = 60; // Distance between interacting agents
 
 function Home() {
   const [input, setInput] = useState("");
@@ -58,12 +59,27 @@ function Home() {
               };
             }
 
+            // Calculate positions for the interaction
+            const centerX =
+              (updatedAgents[agent].x + updatedAgents[payload].x) / 2;
+            const centerY =
+              (updatedAgents[agent].y + updatedAgents[payload].y) / 2;
+
+            // Position agents on either side of the center point
             updatedAgents[agent] = {
               ...updatedAgents[agent],
-              targetX: updatedAgents[payload].x,
-              targetY: updatedAgents[payload].y,
+              targetX: centerX - INTERACTION_DISTANCE / 2,
+              targetY: centerY,
               isMoving: true,
             };
+
+            updatedAgents[payload] = {
+              ...updatedAgents[payload],
+              targetX: centerX + INTERACTION_DISTANCE / 2,
+              targetY: centerY,
+              isMoving: true,
+            };
+
             return updatedAgents;
           });
 
