@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from agents.Delegator import Delegator
 from agents.Builder import Builder
 from Message import Message, delegator_topic, builder_topic
+from utils.log import log, ContentType
 
 # Load environment variables from the .env.development file
 load_dotenv(".env.development")
@@ -94,7 +95,7 @@ async def websocket_endpoint(websocket: WebSocket):
             user_input = (
                 await websocket.receive_text()
             )  # Wait for user input from the WebSocket
-            logger.info("RUNTIME[$]start")  # Log the start of the runtime
+            log(source="RUNTIME", content="start", contentType=ContentType.SYSTEM)  # Log the start of the runtime
             runtime.start()  # Start the runtime
 
             # Publish the user input as a message to the delegator topic
@@ -104,7 +105,7 @@ async def websocket_endpoint(websocket: WebSocket):
             )
 
             await runtime.stop_when_idle()  # Stop the runtime when it is idle
-            logger.info("RUNTIME[$]end")  # Log the end of the runtime
+            log(source="RUNTIME", content="end", contentType=ContentType.SYSTEM)  # Log the end of the runtime
     except WebSocketDisconnect:
         clients.remove(websocket)  # Remove the client on disconnection
         # await websocket.close()  # Close the WebSocket connection

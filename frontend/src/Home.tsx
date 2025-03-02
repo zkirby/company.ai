@@ -1,127 +1,183 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import styled from "styled-components";
 
 const ws = new WebSocket("ws://localhost:8000/ws");
 
 function Home() {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<[string, string][]>([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [agents, setAgents] = useState({});
-  const canvasRef = useRef(null);
+  const [agents, setAgents] = useState<Record<string, AgentState>>({});
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
 
+  interface AgentState {
+    x: number;
+    y: number;
+    color: string;
+    targetX?: number;
+    targetY?: number;
+    isMoving?: boolean;
+  }
+
+  // Parse interaction messages with proper error handling
+  const parseInteraction = useCallback((data: string) => {
+    try {
+      if (data.includes("[$]interact:")) {
+        const [agentName, message] = data.split("[$]");
+        const targetAgent = message.replace("interact:", "").trim();
+        return { agentName, targetAgent };
+      }
+      return null;
+    } catch (error) {
+      console.error("Error parsing interaction:", error);
+      return null;
+    }
+  }, []);
+
+  // Handle WebSocket messages
   useEffect(() => {
     ws.onmessage = (event) => {
       const data = event.data;
 
       // Check if it's an interaction message
-      if (data.includes("interact:")) {
-        const [agentName, interactMessage] = data.split("[$]");
-        const targetAgent = interactMessage.replace("interact:", "").trim();
+      const interaction = parseInteraction(data);
+      if (interaction) {
+        const { agentName, targetAgent } = interaction;
 
         // Update agent position to move towards target
-        handleInteraction(agentName, targetAgent);
+        setAgents((prev) => {
+          // Only process if both agents exist
+          if (!prev[agentName] || !prev[targetAgent]) return prev;
+
+          const updatedAgents = { ...prev };
+          updatedAgents[agentName] = {
+            ...updatedAgents[agentName],
+            targetX: updatedAgents[targetAgent].x,
+            targetY: updatedAgents[targetAgent].y,
+            isMoving: true,
+          };
+
+          return updatedAgents;
+        });
       } else {
         // Regular message
-        const [agent, message] = data.split("[$]");
+        try {
+          const [agent, message] = data.split("[$]");
 
-        // Add agent to the list if it doesn't exist yet
-        if (!agents[agent]) {
-          setAgents((prev) => ({
-            ...prev,
-            [agent]: {
-              x: Math.random() * 380 + 10, // Random initial position
-              y: Math.random() * 380 + 10,
-              color: getRandomColor(),
-            },
-          }));
+          // Add agent to the list if it doesn't exist yet
+          setAgents((prev) => {
+            if (!prev[agent]) {
+              return {
+                ...prev,
+                [agent]: {
+                  x: Math.random() * 380 + 10, // Random initial position
+                  y: Math.random() * 380 + 10,
+                  color: getRandomColor(),
+                },
+              };
+            }
+            return prev;
+          });
+
+          // Update messages
+          setMessages((prev) => [[agent, message], ...prev]);
+        } catch (error) {
+          console.error("Error processing message:", error);
         }
-
-        // Update messages
-        setMessages((prev) => [[agent, message], ...prev]);
       }
     };
 
-    // Animation loop for canvas rendering
-    const intervalId = setInterval(() => {
-      renderCanvas();
-    }, 30);
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [parseInteraction]);
 
-    return () => clearInterval(intervalId);
-  }, [agents]);
-
-  const handleInteraction = (sourceAgent, targetAgent) => {
-    if (agents[sourceAgent] && agents[targetAgent]) {
+  // Set up animation loop for agent movement and rendering
+  useEffect(() => {
+    const updateAgentPositions = () => {
       setAgents((prev) => {
         const updatedAgents = { ...prev };
+        let hasChanges = false;
 
-        // Set movement destination to target agent's position
-        updatedAgents[sourceAgent] = {
-          ...updatedAgents[sourceAgent],
-          targetX: updatedAgents[targetAgent].x,
-          targetY: updatedAgents[targetAgent].y,
-          isMoving: true,
-        };
+        Object.entries(updatedAgents).forEach(([name, agent]) => {
+          // If the agent is moving, update its position
+          if (
+            agent.isMoving &&
+            agent.targetX !== undefined &&
+            agent.targetY !== undefined
+          ) {
+            const dx = agent.targetX - agent.x;
+            const dy = agent.targetY - agent.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
 
-        return updatedAgents;
+            if (distance > 5) {
+              // Move towards target
+              updatedAgents[name] = {
+                ...agent,
+                x: agent.x + (dx / distance) * 3,
+                y: agent.y + (dy / distance) * 3,
+              };
+              hasChanges = true;
+            } else {
+              // Arrived at destination
+              updatedAgents[name] = {
+                ...agent,
+                x: agent.targetX,
+                y: agent.targetY,
+                isMoving: false,
+                targetX: undefined,
+                targetY: undefined,
+              };
+              hasChanges = true;
+            }
+          }
+        });
+
+        return hasChanges ? updatedAgents : prev;
       });
-    }
-  };
 
-  const renderCanvas = () => {
+      renderCanvas();
+      animationFrameRef.current = requestAnimationFrame(updateAgentPositions);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(updateAgentPositions);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
+  // Canvas rendering function that doesn't update state
+  const renderCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw each agent and update positions
-    setAgents((prev) => {
-      const updatedAgents = { ...prev };
+    // Draw each agent without updating state
+    Object.entries(agents).forEach(([name, agent]) => {
+      // Draw the agent
+      ctx.beginPath();
+      ctx.arc(agent.x, agent.y, 10, 0, Math.PI * 2);
+      ctx.fillStyle = agent.color;
+      ctx.fill();
 
-      Object.entries(updatedAgents).forEach(([name, agent]) => {
-        // If the agent is moving, update its position
-        if (agent.isMoving && agent.targetX !== undefined) {
-          const dx = agent.targetX - agent.x;
-          const dy = agent.targetY - agent.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-
-          if (distance > 5) {
-            // Move towards target
-            updatedAgents[name] = {
-              ...agent,
-              x: agent.x + (dx / distance) * 3,
-              y: agent.y + (dy / distance) * 3,
-            };
-          } else {
-            // Arrived at destination
-            updatedAgents[name] = {
-              ...agent,
-              x: agent.targetX,
-              y: agent.targetY,
-              isMoving: false,
-              targetX: undefined,
-              targetY: undefined,
-            };
-          }
-        }
-
-        // Draw the agent
-        ctx.beginPath();
-        ctx.arc(agent.x, agent.y, 10, 0, Math.PI * 2);
-        ctx.fillStyle = agent.color;
-        ctx.fill();
-
-        // Draw agent name
-        ctx.fillStyle = "black";
-        ctx.font = "12px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(name, agent.x, agent.y - 15);
-      });
-
-      return updatedAgents;
+      // Draw agent name
+      ctx.fillStyle = "black";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(name, agent.x, agent.y - 15);
     });
-  };
+  }, [agents]);
 
   const getRandomColor = () => {
     const colors = [
@@ -214,6 +270,7 @@ const Input = styled.textarea`
   border-radius: 5px;
   resize: vertical;
   min-height: 100px;
+  width: 400px;
 `;
 
 const Button = styled.button`

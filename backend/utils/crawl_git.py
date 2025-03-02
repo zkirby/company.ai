@@ -5,9 +5,12 @@ import subprocess
 def get_git_root(start_path=None):
     """Finds the root directory of a Git project by searching for the .git folder."""
     if start_path is None:
-        start_path = os.path.dirname(
-            os.path.abspath(__file__)
-        )  # Start from current script's directory
+        start_path = "/"  # Start from system root
+    else:
+        # Expand user directory (~/...)
+        start_path = os.path.expanduser(start_path)
+        # Get absolute path
+        start_path = os.path.abspath(start_path)
 
     current_path = start_path
 
@@ -56,7 +59,22 @@ def crawl_directory(root_dir):
     return file_list
 
 
-def crawl_git_project():
+def crawl_git_project(start_path=None):
     """Crawls all files and directories from the root of the GitHub project, respecting .gitignore."""
-    git_root = get_git_root()  # Get the Git project root
+    git_root = get_git_root(start_path)  # Get the Git project root
+    print(git_root)
     return crawl_directory(git_root)  # Use your crawling function
+
+def get_context_files(start_path=None):
+    """Gets the contents of high context files like README.md that provide project context."""
+    git_root = get_git_root(start_path)
+    context = {}
+    
+    for file in os.listdir(git_root):
+        if file.startswith("CONTEXT_") and file.endswith(".md"):
+            file_path = os.path.join(git_root, file)
+            if os.path.exists(file_path):
+                with open(file_path, 'r') as f:
+                    context[file] = f.read()
+                
+    return context

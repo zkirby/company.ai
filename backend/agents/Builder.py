@@ -9,8 +9,7 @@ from autogen_core.models import SystemMessage, UserMessage, ModelInfo
 from Message import TaskMessage, builder_topic
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from pydantic import BaseModel
-from utils.log import log
-
+from utils.log import log, ContentType
 
 class File(BaseModel):
     file: str
@@ -48,7 +47,7 @@ class Builder(RoutedAgent):
         """Handles incoming messages and delegates tasks to the model client."""
         prompt_files = file_strings(message)  # Prepare the files for the prompt.
         prompt = f"Team task: {message.context}; Your Task: {message.task}\nFiles: {prompt_files}"
-        log(source=self.id, content=prompt)  # Log the prompt being sent to the model client.
+        log(source=self.id, content=prompt, contentType=ContentType.MESSAGE)  # Log the prompt being sent to the model client.
         llm_result = await self._model_client.create(
             messages=[
                 self._system_message,
@@ -60,7 +59,7 @@ class Builder(RoutedAgent):
         work = Work.model_validate_json(response)  # Validate the response format.
 
         for item in work.files:
-            log(source=self.id, content=f"{item.file}\n{item.content}")
+            log(source=self.id, content=item.content, contentType=ContentType.MESSAGE)
             # Ensure the directory exists before writing the file.
             os.makedirs(os.path.dirname(item.file), exist_ok=True)
 

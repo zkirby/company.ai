@@ -9,9 +9,8 @@ from autogen_core.models import SystemMessage, UserMessage, ModelInfo
 from Message import Message, TaskMessage, delegator_topic, builder_topic
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from pydantic import BaseModel
-from utils.crawl_git import crawl_git_project
-from utils.log import log
-
+from utils.crawl_git import crawl_git_project, get_context_files
+from utils.log import log, ContentType
 
 class Task(BaseModel):
     overview: str  # Brief description of the task.
@@ -48,11 +47,13 @@ class Delegator(RoutedAgent):
     @message_handler  # Decorator to handle incoming messages.
     async def handle_message(self, message: Message, ctx: MessageContext) -> None:
         # Retrieve the list of files from the git project directory.
-        files = crawl_git_project()
+        files = crawl_git_project("~/Code/builtbyrobots/timemap")
+        context = get_context_files("~/Code/builtbyrobots/timemap")
         prompt = (
-            f"Query to break into tasks: {message.content}\n Existing files: {files}"
+            f"Query to break into tasks: {message.content}\n Existing files: {files}" +
+            f"\n\nContext about the project: {context}"
         )
-        log(source=self.id, content=prompt)  # Log the prompt being sent to the model.
+        log(source=self.id, content=prompt, contentType=ContentType.MESSAGE)  # Log the prompt being sent to the model.
 
         # Create a response from the model using the constructed prompt.
         llm_result = await self._model_client.create(
@@ -71,6 +72,9 @@ class Delegator(RoutedAgent):
 
         # Iterate through each task and publish messages for task assignments.
         for [i, task] in enumerate(delegators.tasks):
+            log(source=self.id, content=f"{self.id.key}{i}", contentType=ContentType.INTERACTION)
+            log(source=self.id, content=task.overview, contentType=ContentType.MESSAGE)
+            log(source=self.id, content=task.files, contentType=ContentType.MESSAGE)
             await self.publish_message(
                 message=TaskMessage(
                     task=task.overview,  # Overview of the task to be assigned.
@@ -79,5 +83,3 @@ class Delegator(RoutedAgent):
                 ),
                 topic_id=TopicId(builder_topic, source=f"{self.id.key}{i}"),  # Unique topic ID for each task message.
             )
-            # Log the interaction for tracking which task has been sent.
-            log(source=self.id, content=f"interact:{self.id.key}{i}")

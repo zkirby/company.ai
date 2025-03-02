@@ -1,5 +1,5 @@
 import logging
-
+from enum import Enum
 from autogen_core import TRACE_LOGGER_NAME
 
 
@@ -8,10 +8,15 @@ logger = logging.getLogger(TRACE_LOGGER_NAME)
 DELIM = "[$]"
 
 
-def log(source=str, content=str, contentType=str):
+class ContentType(Enum):
+    INTERACT = "interact"
+    MESSAGE = "message" 
+    SYSTEM = "system"
+
+def log(source=str, content=str, contentType: ContentType = ContentType.MESSAGE):
     # Format content for better readability
     formatted_content = format_content(content)
-    logger.info(f"{source}{DELIM}{formatted_content}")
+    logger.info(f"{source}{DELIM}{contentType.value}{DELIM}{formatted_content}")
 
 
 def format_content(content):
