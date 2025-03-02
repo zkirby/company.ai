@@ -46,6 +46,7 @@ class Delegator(RoutedAgent):
 
     @message_handler  # Decorator to handle incoming messages.
     async def handle_message(self, message: Message, ctx: MessageContext) -> None:
+        log(source=self.id, content=f"{self.id.key}", contentType=ContentType.CREATE)
         # Retrieve the list of files from the git project directory.
         files = crawl_git_project("~/Code/builtbyrobots/timemap")
         context = get_context_files("~/Code/builtbyrobots/timemap")

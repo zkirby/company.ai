@@ -3,9 +3,15 @@ import styled from "styled-components";
 
 const ws = new WebSocket("ws://localhost:8000/ws");
 
+// Add these constants at the top of the file, after imports
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 500;
+const AGENT_RADIUS = 10;
+const MARGIN = 10;
+
 function Home() {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<[string, string][]>([]);
+  const [messages, setMessages] = useState<[string, string, string][]>([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -15,76 +21,107 @@ function Home() {
     x: number;
     y: number;
     color: string;
+    type?: string;
     targetX?: number;
     targetY?: number;
     isMoving?: boolean;
   }
-
-  // Parse interaction messages with proper error handling
-  const parseInteraction = useCallback((data: string) => {
-    const [agentName, type, payload] = data.split("[$]");
-    try {
-      if (type === "interact") {
-        return { agentName, targetAgent: payload };
-      }
-      return null;
-    } catch (error) {
-      console.error("Error parsing interaction:", error);
-      return null;
-    }
-  }, []);
 
   // Handle WebSocket messages
   useEffect(() => {
     ws.onmessage = (event) => {
       const data = event.data;
 
-      // Check if it's an interaction message
-      const interaction = parseInteraction(data);
-      console.log(interaction);
-      if (interaction) {
-        const { agentName, targetAgent } = interaction;
+      // Check message type
+      const [agent, type, payload] = data.split("[$]");
 
-        // Update agent position to move towards target
-        setAgents((prev) => {
-          console.log(prev);
-          // Only process if both agents exist
-          if (!prev[agentName] || !prev[targetAgent]) return prev;
+      switch (type) {
+        case "interact": {
+          // Handle agent interactions
+          const interaction = JSON.parse(payload);
+          const { source, target } = interaction;
 
-          const updatedAgents = { ...prev };
-          updatedAgents[agentName] = {
-            ...updatedAgents[agentName],
-            targetX: updatedAgents[targetAgent].x,
-            targetY: updatedAgents[targetAgent].y,
-            isMoving: true,
-          };
+          // Create agents if they don't exist
+          setAgents((prev) => {
+            const updatedAgents = { ...prev };
+            if (!updatedAgents[source]) {
+              updatedAgents[source] = {
+                x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
+                y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
+                color: getRandomColor(),
+              };
+            }
+            if (!updatedAgents[target]) {
+              updatedAgents[target] = {
+                x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
+                y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
+                color: getRandomColor(),
+              };
+            }
 
-          return updatedAgents;
-        });
-      } else {
-        // Regular message
-        try {
-          const [agent, , message] = data.split("[$]");
-
-          // Add agent to the list if it doesn't exist yet
+            updatedAgents[source] = {
+              ...updatedAgents[source],
+              targetX: updatedAgents[target].x,
+              targetY: updatedAgents[target].y,
+              isMoving: true,
+            };
+            return updatedAgents;
+          });
+          break;
+        }
+        case "create": {
+          // Handle agent creation
           setAgents((prev) => {
             if (!prev[agent]) {
               return {
                 ...prev,
                 [agent]: {
-                  x: Math.random() * 380 + 10, // Random initial position
-                  y: Math.random() * 380 + 10,
+                  x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
+                  y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
                   color: getRandomColor(),
+                  type: payload,
                 },
               };
             }
             return prev;
           });
+          break;
+        }
 
-          // Update messages
-          setMessages((prev) => [[agent, message], ...prev]);
-        } catch (error) {
-          console.error("Error processing message:", error);
+        case "message": {
+          // Handle regular messages
+          try {
+            // Add agent if it doesn't exist
+            setAgents((prev) => {
+              if (!prev[agent]) {
+                return {
+                  ...prev,
+                  [agent]: {
+                    x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
+                    y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
+                    color: getRandomColor(),
+                  },
+                };
+              }
+              return prev;
+            });
+
+            // Add message to list
+            setMessages((prev) => [[agent, type, payload], ...prev]);
+          } catch (error) {
+            console.error("Error processing message:", error);
+          }
+          break;
+        }
+
+        case "system": {
+          // Only add message to list without creating new agent
+          try {
+            setMessages((prev) => [[agent, type, payload], ...prev]);
+          } catch (error) {
+            console.error("Error processing message:", error);
+          }
+          break;
         }
       }
     };
@@ -94,7 +131,33 @@ function Home() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [parseInteraction]);
+  }, []);
+
+  // Canvas rendering function that doesn't update state
+  const renderCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    Object.entries(agents).forEach(([name, agent]) => {
+      ctx.beginPath();
+      ctx.arc(agent.x, agent.y, AGENT_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = agent.color;
+      ctx.fill();
+
+      ctx.fillStyle = "black";
+      ctx.font = "12px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(name, agent.x, agent.y - (AGENT_RADIUS + 5));
+      if (agent.type) {
+        ctx.fillText(agent.type, agent.x, agent.y - (AGENT_RADIUS + 20));
+      }
+    });
+  }, [agents]);
 
   // Set up animation loop for agent movement and rendering
   useEffect(() => {
@@ -151,34 +214,7 @@ function Home() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, []);
-
-  // Canvas rendering function that doesn't update state
-  const renderCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw each agent without updating state
-    Object.entries(agents).forEach(([name, agent]) => {
-      // Draw the agent
-      ctx.beginPath();
-      ctx.arc(agent.x, agent.y, 10, 0, Math.PI * 2);
-      ctx.fillStyle = agent.color;
-      ctx.fill();
-
-      // Draw agent name
-      ctx.fillStyle = "black";
-      ctx.font = "12px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(name, agent.x, agent.y - 15);
-    });
-  }, [agents]);
+  }, [renderCanvas]);
 
   const getRandomColor = () => {
     const colors = [
@@ -207,7 +243,7 @@ function Home() {
     <Container>
       <MainPanel>
         <CanvasContainer>
-          <Canvas ref={canvasRef} width={800} height={500} />
+          <Canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} />
         </CanvasContainer>
         <ControlArea>
           <Input
@@ -225,12 +261,12 @@ function Home() {
 
       <SidePanel>
         <MessagesContainer>
-          {messages.map(([name, say], index) => (
+          {messages.map(([name, type, say], index) => (
             <MessageBlock key={`${name}-${index}`} className="message-display">
               <MessageHeader>
                 <h5>{name}</h5>
               </MessageHeader>
-              <MessageContent>
+              <MessageContent $isSystem={type === "system"}>
                 <pre>{say}</pre>
               </MessageContent>
             </MessageBlock>
@@ -273,7 +309,8 @@ const CanvasContainer = styled.div`
 const Canvas = styled.canvas`
   background-color: #f8f8f8;
   width: 100%;
-  height: 100%;
+  height: auto;
+  aspect-ratio: ${CANVAS_WIDTH} / ${CANVAS_HEIGHT};
 `;
 
 const ControlArea = styled.div`
@@ -325,9 +362,9 @@ const MessageHeader = styled.div`
   }
 `;
 
-const MessageContent = styled.div`
+const MessageContent = styled.div<{ $isSystem?: boolean }>`
   padding: 5px 10px;
-  color: #333;
+  color: ${(props) => (props.$isSystem ? "red" : "#333")};
   background-color: #e1f5fe; /* pastel light blue */
   border-radius: 0 0 10px 10px;
   pre {
