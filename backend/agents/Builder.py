@@ -45,7 +45,7 @@ class Builder(RoutedAgent):
     @message_handler
     async def handle_message(self, message: TaskMessage, ctx: MessageContext) -> None:
         """Handles incoming messages and delegates tasks to the model client."""
-        log(source=self.id, content=f"{self.id.key}", contentType=ContentType.CREATE)
+        log(source=self.id, content=f"{self.id.type}", contentType=ContentType.CREATE)
         prompt_files = file_strings(message)  # Prepare the files for the prompt.
         prompt = f"Team task: {message.context}; Your Task: {message.task}\nFiles: {prompt_files}"
         log(source=self.id, content=prompt, contentType=ContentType.MESSAGE)  # Log the prompt being sent to the model client.

@@ -14,6 +14,9 @@ function Home() {
   const [messages, setMessages] = useState<[string, string, string][]>([]);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
+    new Set()
+  );
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -37,36 +40,38 @@ function Home() {
 
       switch (type) {
         case "interact": {
-          // Handle agent interactions
-          const interaction = JSON.parse(payload);
-          const { source, target } = interaction;
-
           // Create agents if they don't exist
           setAgents((prev) => {
             const updatedAgents = { ...prev };
-            if (!updatedAgents[source]) {
-              updatedAgents[source] = {
+            if (!updatedAgents[agent]) {
+              updatedAgents[agent] = {
                 x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
                 y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
                 color: getRandomColor(),
               };
             }
-            if (!updatedAgents[target]) {
-              updatedAgents[target] = {
+            if (!updatedAgents[payload]) {
+              updatedAgents[payload] = {
                 x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
                 y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
                 color: getRandomColor(),
               };
             }
 
-            updatedAgents[source] = {
-              ...updatedAgents[source],
-              targetX: updatedAgents[target].x,
-              targetY: updatedAgents[target].y,
+            updatedAgents[agent] = {
+              ...updatedAgents[agent],
+              targetX: updatedAgents[payload].x,
+              targetY: updatedAgents[payload].y,
               isMoving: true,
             };
             return updatedAgents;
           });
+
+          // Add interaction message
+          setMessages((prev) => [
+            [agent, type, `Interacting with ${payload}`],
+            ...prev,
+          ]);
           break;
         }
         case "create": {
@@ -85,6 +90,12 @@ function Home() {
             }
             return prev;
           });
+
+          // Add creation message
+          setMessages((prev) => [
+            [agent, type, `Agent created as ${payload}`],
+            ...prev,
+          ]);
           break;
         }
 
@@ -239,6 +250,32 @@ function Home() {
     setIsCollapsed((prev) => !prev);
   };
 
+  const toggleMessageExpand = (messageId: string) => {
+    setExpandedMessages((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const messageNeedsExpand = (message: string) => {
+    const dummyElement = document.createElement("div");
+    dummyElement.style.whiteSpace = "pre-wrap";
+    dummyElement.style.width = "100%";
+    dummyElement.style.height = "100px";
+    dummyElement.style.position = "absolute";
+    dummyElement.style.visibility = "hidden";
+    dummyElement.textContent = message;
+    document.body.appendChild(dummyElement);
+    const needsExpand = dummyElement.scrollHeight > 100;
+    document.body.removeChild(dummyElement);
+    return needsExpand;
+  };
+
   return (
     <Container>
       <MainPanel>
@@ -261,16 +298,33 @@ function Home() {
 
       <SidePanel>
         <MessagesContainer>
-          {messages.map(([name, type, say], index) => (
-            <MessageBlock key={`${name}-${index}`} className="message-display">
-              <MessageHeader>
-                <h5>{name}</h5>
-              </MessageHeader>
-              <MessageContent $isSystem={type === "system"}>
-                <pre>{say}</pre>
-              </MessageContent>
-            </MessageBlock>
-          ))}
+          {messages.map(([name, type, say], index) => {
+            const messageId = `${name}-${index}`;
+            const isExpanded = expandedMessages.has(messageId);
+            const needsExpand = messageNeedsExpand(say);
+            return (
+              <MessageBlock key={messageId} className="message-display">
+                <MessageHeader>
+                  <h5>{name}</h5>
+                </MessageHeader>
+                <MessageContent
+                  $isSystem={type === "system"}
+                  $isInteract={type === "interact"}
+                  $isCreate={type === "create"}
+                  $isExpanded={isExpanded}
+                >
+                  <pre>{say}</pre>
+                  {needsExpand && (
+                    <ExpandButton
+                      onClick={() => toggleMessageExpand(messageId)}
+                    >
+                      {isExpanded ? "Show Less" : "Show More"}
+                    </ExpandButton>
+                  )}
+                </MessageContent>
+              </MessageBlock>
+            );
+          })}
         </MessagesContainer>
       </SidePanel>
     </Container>
@@ -362,14 +416,44 @@ const MessageHeader = styled.div`
   }
 `;
 
-const MessageContent = styled.div<{ $isSystem?: boolean }>`
+const MessageContent = styled.div<{
+  $isSystem?: boolean;
+  $isInteract?: boolean;
+  $isCreate?: boolean;
+  $isExpanded?: boolean;
+}>`
   padding: 5px 10px;
-  color: ${(props) => (props.$isSystem ? "red" : "#333")};
-  background-color: #e1f5fe; /* pastel light blue */
+  color: #333;
+  background-color: ${(props) => {
+    if (props.$isSystem) return "#ffebee"; // red
+    if (props.$isInteract) return "#fff3cd"; // yellow
+    if (props.$isCreate) return "#d4edda"; // green
+    return "#e1f5fe"; // default light blue
+  }};
   border-radius: 0 0 10px 10px;
+  position: relative;
+
   pre {
     margin: 0;
     white-space: pre-wrap;
+    max-height: ${(props) => (props.$isExpanded ? "none" : "100px")};
+    overflow: hidden;
+  }
+`;
+
+const ExpandButton = styled.button`
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 12px;
+
+  &:hover {
+    text-decoration: underline;
   }
 `;
 

@@ -29,7 +29,7 @@ class Delegator(RoutedAgent):
         self._system_message = SystemMessage(
             content=(
                 "You are an engineering manager responsible for dividing a software task between 1 to 3 developer LLMs.\n"
-                "Try to use the minimum number of developers and files to achieve this task.\n"
+                "Try to use the minimum number of developers and files to achieve this task. MOST of the time you should only need 1 developer.\n"
                 "Remember, this is all managed by LLMs, they don't need to test, they just need very precise directions\n"
                 "You're tasked with assigning which files each developer should edit or create in order to meet the goal. Prefer to edit existing files unless new functionality is necessary\n"
                 "Include important context about what the task is for each developer."
@@ -46,7 +46,7 @@ class Delegator(RoutedAgent):
 
     @message_handler  # Decorator to handle incoming messages.
     async def handle_message(self, message: Message, ctx: MessageContext) -> None:
-        log(source=self.id, content=f"{self.id.key}", contentType=ContentType.CREATE)
+        log(source=self.id, content=f"{self.id.type}", contentType=ContentType.CREATE)
         # Retrieve the list of files from the git project directory.
         files = crawl_git_project("~/Code/builtbyrobots/timemap")
         context = get_context_files("~/Code/builtbyrobots/timemap")
