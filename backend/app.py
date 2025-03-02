@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-
+import json
 from autogen_core import TRACE_LOGGER_NAME, SingleThreadedAgentRuntime, TopicId
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -95,9 +95,8 @@ async def websocket_endpoint(websocket: WebSocket):
         clients.remove(websocket)  # Remove the client on disconnection
         # await websocket.close()  # Close the WebSocket connection
 
-@app.get("/get/{key}")
+@app.get("/info/{key}")
 def get_value(key: str):
-    return {"value": global_store.get(key, "Not found")}
-
+    return {"value": json.dumps(global_store.get(key, "Not found"))}
 
 

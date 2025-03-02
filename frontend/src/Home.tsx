@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import styled from "styled-components";
+import AgentInfo from "./AgentInfo";
 
 const ws = new WebSocket("ws://localhost:8000/ws");
 
@@ -19,6 +20,7 @@ function Home() {
   );
   const [totalTokens, setTotalTokens] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -172,6 +174,33 @@ function Home() {
     };
   }, []);
 
+  // Handle canvas click events
+  const handleCanvasClick = useCallback(
+    (event: React.MouseEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clickX = x * scaleX;
+      const clickY = y * scaleY;
+
+      // Check if click is within any agent's radius
+      Object.entries(agents).forEach(([agentId, agent]) => {
+        const distance = Math.sqrt(
+          Math.pow(clickX - agent.x, 2) + Math.pow(clickY - agent.y, 2)
+        );
+        if (distance <= AGENT_RADIUS) {
+          setSelectedAgent(agentId);
+        }
+      });
+    },
+    [agents]
+  );
+
   // Canvas rendering function that doesn't update state
   const renderCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -304,7 +333,12 @@ function Home() {
     <Container>
       <MainPanel>
         <CanvasContainer>
-          <Canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} />
+          <Canvas
+            ref={canvasRef}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
+            onClick={handleCanvasClick}
+          />
         </CanvasContainer>
         <UsageStats>
           <div>Total Tokens: {totalTokens}</div>
@@ -322,35 +356,42 @@ function Home() {
       </MainPanel>
 
       <SidePanel>
-        <MessagesContainer>
-          {messages.map(([name, type, say], index) => {
-            const messageId = `${name}-${index}`;
-            const isExpanded = expandedMessages.has(messageId);
-            const needsExpand = messageNeedsExpand(say);
-            return (
-              <MessageBlock key={messageId} className="message-display">
-                <MessageHeader>
-                  <h5>{name}</h5>
-                </MessageHeader>
-                <MessageContent
-                  $isSystem={type === "system"}
-                  $isInteract={type === "interact"}
-                  $isCreate={type === "create"}
-                  $isExpanded={isExpanded}
-                >
-                  <pre>{say}</pre>
-                  {needsExpand && (
-                    <ExpandButton
-                      onClick={() => toggleMessageExpand(messageId)}
-                    >
-                      {isExpanded ? "Show Less" : "Show More"}
-                    </ExpandButton>
-                  )}
-                </MessageContent>
-              </MessageBlock>
-            );
-          })}
-        </MessagesContainer>
+        {selectedAgent ? (
+          <div style={{ position: "relative" }}>
+            <CloseButton onClick={() => setSelectedAgent(null)}>×</CloseButton>
+            <AgentInfo id={selectedAgent} />
+          </div>
+        ) : (
+          <MessagesContainer>
+            {messages.map(([name, type, say], index) => {
+              const messageId = `${name}-${index}`;
+              const isExpanded = expandedMessages.has(messageId);
+              const needsExpand = messageNeedsExpand(say);
+              return (
+                <MessageBlock key={messageId} className="message-display">
+                  <MessageHeader>
+                    <h5>{name}</h5>
+                  </MessageHeader>
+                  <MessageContent
+                    $isSystem={type === "system"}
+                    $isInteract={type === "interact"}
+                    $isCreate={type === "create"}
+                    $isExpanded={isExpanded}
+                  >
+                    <pre>{say}</pre>
+                    {needsExpand && (
+                      <ExpandButton
+                        onClick={() => toggleMessageExpand(messageId)}
+                      >
+                        {isExpanded ? "Show Less" : "Show More"}
+                      </ExpandButton>
+                    )}
+                  </MessageContent>
+                </MessageBlock>
+              );
+            })}
+          </MessagesContainer>
+        )}
       </SidePanel>
     </Container>
   );
@@ -389,6 +430,7 @@ const Canvas = styled.canvas`
   width: 100%;
   height: auto;
   aspect-ratio: ${CANVAS_WIDTH} / ${CANVAS_HEIGHT};
+  cursor: pointer;
 `;
 
 const UsageStats = styled.div`
@@ -489,6 +531,24 @@ const ExpandButton = styled.button`
 
   &:hover {
     text-decoration: underline;
+  }
+`;
+
+const CloseButton = styled.button`
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  line-height: 1;
+  z-index: 1;
+
+  &:hover {
+    color: #333;
   }
 `;
 
