@@ -43,18 +43,39 @@ function Home() {
     isMoving?: boolean;
   }
 
-  // Fetch projects on mount
+  // Fetch projects and usage stats on mount
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  // Fetch usage stats when project changes
+  useEffect(() => {
+    if (selectedProject) {
+      fetchUsageStats();
+    }
+  }, [selectedProject]);
+
+  const fetchUsageStats = async () => {
+    if (!selectedProject) return;
+
+    try {
+      const response = await fetch(`http://localhost:8000/projects/active`);
+      const data = await response.json();
+      setTotalTokens(data.total_tokens);
+      setTotalCost(data.total_cost);
+    } catch (error) {
+      console.error("Error fetching usage stats:", error);
+    }
+  };
 
   const fetchProjects = async () => {
     try {
       const response = await fetch("http://localhost:8000/projects/");
       const data = await response.json();
       setProjects(data);
-      if (data.length > 0 && !selectedProject) {
+      if (data.length > 0) {
         setSelectedProject(data[0]);
+        handleActivateProject(data[0].id);
       }
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -80,6 +101,25 @@ function Home() {
       }
     } catch (error) {
       console.error("Error creating project:", error);
+    }
+  };
+
+  const handleActivateProject = async (projectId: number) => {
+    try {
+      const response = await fetch(
+        `http://localhost:8000/projects/${projectId}/activate`,
+        {
+          method: "POST",
+        }
+      );
+
+      console.log(await response.json());
+
+      if (response.ok) {
+        await fetchUsageStats();
+      }
+    } catch (error) {
+      console.error("Error activating project:", error);
     }
   };
 
@@ -420,7 +460,10 @@ function Home() {
             const project = projects.find(
               (p) => p.id === Number(e.target.value)
             );
-            if (project) setSelectedProject(project);
+            if (project) {
+              setSelectedProject(project);
+              handleActivateProject(project.id);
+            }
           }}
         >
           {projects.map((project) => (

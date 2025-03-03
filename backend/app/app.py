@@ -3,17 +3,18 @@ import logging
 import os
 import json
 from autogen_core import TRACE_LOGGER_NAME, SingleThreadedAgentRuntime, TopicId
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from agents.Delegator import Delegator
 from agents.Builder import Builder
 from Message import Message, delegator_topic, builder_topic
 from utils.log import log, ContentType
-from store import global_store
-from Models import Project
+from Models import Project, Agent
 from db import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from store import GLOBAL_PROJECT_ID
+
 
 app = FastAPI()
 app.add_middleware(
@@ -93,8 +94,12 @@ async def websocket_endpoint(websocket: WebSocket):
         # await websocket.close()  # Close the WebSocket connection
 
 @app.get("/info/{key}")
-def get_value(key: str):
-    return global_store.get(key, {"cost": 0, "model": "none", "input_tokens": 0, "output_tokens": 0})
+async def get_value(key: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Agent).filter(Agent.id == key, Agent.project_id == GLOBAL_PROJECT_ID))
+    agent = result.scalar_one_or_none()
+    if agent is None:
+        return {"cost": 0, "model": "none", "input_tokens": 0, "output_tokens": 0}
+    return {"cost": agent.cost, "model": agent.model, "input_tokens": agent.input_tokens, "output_tokens": agent.output_tokens}
 
 @app.post("/projects/")
 async def create_project(project: dict, db: AsyncSession = Depends(get_db)):
@@ -110,10 +115,45 @@ async def get_projects(db: AsyncSession = Depends(get_db)):
     projects = result.scalars().all()
     return projects
 
-@app.get("/projects/{project_id}")
-async def get_project(project_id: int, db: AsyncSession = Depends(get_db)):
+@app.get("/projects/active")
+async def get_active_project( db: AsyncSession = Depends(get_db)):
+    # Get project
+    result = await db.execute(select(Project).filter(Project.id == GLOBAL_PROJECT_ID))
+    project = result.scalar_one_or_none()
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Get all agents for this project
+    agents_result = await db.execute(select(Agent).filter(Agent.project_id == GLOBAL_PROJECT_ID))
+    agents = agents_result.scalars().all()
+    
+    # Calculate totals
+    total_input_tokens = sum(agent.input_tokens for agent in agents)
+    total_output_tokens = sum(agent.output_tokens for agent in agents)
+    total_cost = sum(agent.cost for agent in agents)
+    
+    # Add totals to project response
+    project_dict = {
+        "id": project.id,
+        "name": project.name,
+        "total_input_tokens": total_input_tokens,
+        "total_output_tokens": total_output_tokens, 
+        "total_tokens": total_input_tokens + total_output_tokens,
+        "total_cost": total_cost
+    }
+    
+    return project_dict
+
+
+@app.post("/projects/{project_id}/activate")
+async def set_active_project(project_id: int, db: AsyncSession = Depends(get_db)):
+    # Verify project exists
     result = await db.execute(select(Project).filter(Project.id == project_id))
     project = result.scalar_one_or_none()
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    return project
+    
+    # Set global project ID
+    global GLOBAL_PROJECT_ID
+    GLOBAL_PROJECT_ID = project_id
+    return {"message": f"Activated project {project_id}"}

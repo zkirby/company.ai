@@ -12,14 +12,15 @@ def get_git_root(start_path=None):
         # Get absolute path
         start_path = os.path.abspath(start_path)
 
-    current_path = start_path
+    return start_path
+    # current_path = start_path
 
-    while current_path != os.path.dirname(current_path):  # Stop at filesystem root
-        if os.path.isdir(os.path.join(current_path, ".git")):
-            return current_path
-        current_path = os.path.dirname(current_path)  # Move one level up
+    # while current_path != os.path.dirname(current_path):  # Stop at filesystem root
+    #     if os.path.isdir(os.path.join(current_path, ".git")):
+    #         return current_path
+    #     current_path = os.path.dirname(current_path)  # Move one level up
 
-    raise FileNotFoundError("No .git directory found, are you inside a Git project?")
+    # raise FileNotFoundError("No .git directory found, are you inside a Git project?")
 
 
 def is_ignored_by_git(path: str):
@@ -62,7 +63,6 @@ def crawl_directory(root_dir):
 def crawl_git_project(start_path=None):
     """Crawls all files and directories from the root of the GitHub project, respecting .gitignore."""
     git_root = get_git_root(start_path)  # Get the Git project root
-    print(git_root)
     return crawl_directory(git_root)  # Use your crawling function
 
 def get_context_files(start_path=None):

@@ -8,7 +8,7 @@ from autogen_core import (
 from Message import TaskMessage, builder_topic
 from pydantic import BaseModel
 from utils.log import log, ContentType
-from agents.Agent import Agent
+from agents.BaseAgent import BaseAgent
 
 class File(BaseModel):
     file: str
@@ -47,7 +47,7 @@ is going to be hot reloaded back into the website so it must be working.
 """
 
 @type_subscription(topic_type=builder_topic)
-class Builder(Agent):
+class Builder(BaseAgent):
     def __init__(self) -> None:
         super().__init__("A software developer", system_message, Work)
 

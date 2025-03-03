@@ -1,1 +1,1 @@
-global_store = {}
+GLOBAL_PROJECT_ID = 1

@@ -50,7 +50,6 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
           throw new Error("Failed to fetch agent info");
         }
         const data = await response.json();
-        console.log(data);
         setInfo(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
