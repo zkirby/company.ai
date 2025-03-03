@@ -11,6 +11,11 @@ const AGENT_RADIUS = 10;
 const MARGIN = 10;
 const INTERACTION_DISTANCE = 60; // Distance between interacting agents
 
+interface Project {
+  id: number;
+  name: string;
+}
+
 function Home() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<[string, string, string][]>([]);
@@ -21,6 +26,10 @@ function Home() {
   const [totalTokens, setTotalTokens] = useState(0);
   const [totalCost, setTotalCost] = useState(0);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
@@ -33,6 +42,46 @@ function Home() {
     targetY?: number;
     isMoving?: boolean;
   }
+
+  // Fetch projects on mount
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/projects/");
+      const data = await response.json();
+      setProjects(data);
+      if (data.length > 0 && !selectedProject) {
+        setSelectedProject(data[0]);
+      }
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    }
+  };
+
+  const handleAddProject = async () => {
+    if (!newProjectName.trim()) return;
+
+    try {
+      const response = await fetch("http://localhost:8000/projects/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: newProjectName }),
+      });
+
+      if (response.ok) {
+        setNewProjectName("");
+        setShowAddProject(false);
+        await fetchProjects();
+      }
+    } catch (error) {
+      console.error("Error creating project:", error);
+    }
+  };
 
   // Handle WebSocket messages
   useEffect(() => {
@@ -331,8 +380,75 @@ function Home() {
     return needsExpand;
   };
 
+  if (!selectedProject) {
+    return (
+      <Container>
+        <ProjectPrompt>
+          <h2>Welcome! Please create a project to get started.</h2>
+          <Button onClick={() => setShowAddProject(true)}>
+            Create Project
+          </Button>
+          {showAddProject && (
+            <Modal>
+              <ModalContent>
+                <h3>Create New Project</h3>
+                <Input
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Project name..."
+                />
+                <ButtonGroup>
+                  <Button onClick={handleAddProject}>Create</Button>
+                  <Button onClick={() => setShowAddProject(false)}>
+                    Cancel
+                  </Button>
+                </ButtonGroup>
+              </ModalContent>
+            </Modal>
+          )}
+        </ProjectPrompt>
+      </Container>
+    );
+  }
+
   return (
     <Container>
+      <ProjectHeader>
+        <ProjectSelect
+          value={selectedProject.id}
+          onChange={(e) => {
+            const project = projects.find(
+              (p) => p.id === Number(e.target.value)
+            );
+            if (project) setSelectedProject(project);
+          }}
+        >
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </ProjectSelect>
+        <Button onClick={() => setShowAddProject(true)}>Add Project</Button>
+      </ProjectHeader>
+
+      {showAddProject && (
+        <Modal>
+          <ModalContent>
+            <h3>Create New Project</h3>
+            <Input
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              placeholder="Project name..."
+            />
+            <ButtonGroup>
+              <Button onClick={handleAddProject}>Create</Button>
+              <Button onClick={() => setShowAddProject(false)}>Cancel</Button>
+            </ButtonGroup>
+          </ModalContent>
+        </Modal>
+      )}
+
       <MainPanel>
         <CanvasContainer>
           <Canvas
@@ -405,6 +521,62 @@ const Container = styled.div`
   padding: 2rem;
   font-family: Arial, sans-serif;
   height: 100vh;
+`;
+
+const ProjectHeader = styled.div`
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  z-index: 1;
+`;
+
+const ProjectSelect = styled.select`
+  padding: 0.5rem;
+  border-radius: 5px;
+  border: 1px solid #c1c1c1;
+  font-size: 1rem;
+`;
+
+const ProjectPrompt = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  width: 100%;
+  text-align: center;
+`;
+
+const Modal = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  padding: 2rem;
+  border-radius: 10px;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
 `;
 
 const MainPanel = styled.div`

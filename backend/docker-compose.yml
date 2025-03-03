@@ -26,7 +26,11 @@ services:
     networks:
       - mainnetwork
     command:
-      ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+      [
+        "sh",
+        "-c",
+        "cd app && uvicorn app:app --host 0.0.0.0 --port 8000 --reload",
+      ]
 
 volumes:
   pgdata:

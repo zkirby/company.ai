@@ -3,13 +3,17 @@ import logging
 import os
 import json
 from autogen_core import TRACE_LOGGER_NAME, SingleThreadedAgentRuntime, TopicId
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from agents.Delegator import Delegator
 from agents.Builder import Builder
 from Message import Message, delegator_topic, builder_topic
 from utils.log import log, ContentType
 from store import global_store
+from Models import Project
+from db import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 app = FastAPI()
 app.add_middleware(
@@ -92,3 +96,24 @@ async def websocket_endpoint(websocket: WebSocket):
 def get_value(key: str):
     return global_store.get(key, {"cost": 0, "model": "none", "input_tokens": 0, "output_tokens": 0})
 
+@app.post("/projects/")
+async def create_project(project: dict, db: AsyncSession = Depends(get_db)):
+    db_project = Project(name=project["name"])
+    db.add(db_project)
+    await db.commit()
+    await db.refresh(db_project)
+    return db_project
+
+@app.get("/projects/")
+async def get_projects(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Project))
+    projects = result.scalars().all()
+    return projects
+
+@app.get("/projects/{project_id}")
+async def get_project(project_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Project).filter(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
