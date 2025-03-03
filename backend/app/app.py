@@ -90,6 +90,5 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/info/{key}")
 def get_value(key: str):
-    print(key, global_store)
     return global_store.get(key, {"cost": 0, "model": "none", "input_tokens": 0, "output_tokens": 0})
 

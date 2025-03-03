@@ -43,11 +43,9 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
       try {
         const [key, type] = id.split("/");
         const urlFriendlyId = `${type}|${key}`;
-        console.log(urlFriendlyId);
         const response = await fetch(
           `http://localhost:8000/info/${urlFriendlyId}`
         );
-        console.log(response);
         if (!response.ok) {
           throw new Error("Failed to fetch agent info");
         }
