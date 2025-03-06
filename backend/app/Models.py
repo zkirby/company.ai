@@ -15,6 +15,7 @@ class Agent(Base):
     id = Column(String, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     cost = Column(Float, default=0)
+    model = Column(String, default="NO MODE")
     input_tokens = Column(Integer, default=0)
     output_tokens = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.now)

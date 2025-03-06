@@ -46,7 +46,25 @@
         margin-top: 10px;
         height: 5px;
         border-radius: 5px;
+        background: #777;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      .slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
         background: #ccc;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+      .slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        background: #ccc;
+        border-radius: 50%;
+        cursor: pointer;
       }
       .footer {
         text-align: center;
@@ -70,6 +88,9 @@
         font-size: 1.2em;
         color: #666;
         margin-top: 10px;
+      }
+      h2 {
+        color: #333;
       }
     </style>
   </head>
