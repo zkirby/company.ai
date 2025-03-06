@@ -27,7 +27,6 @@ class BaseAgent(RoutedAgent):
         asyncio.create_task(self.create_agent())
 
     async def create_agent(self):
-        print(GLOBAL_PROJECT_ID)
         db = await get_db()
 
         # Check if agent already exists for this project

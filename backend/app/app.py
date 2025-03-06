@@ -46,18 +46,18 @@ class WebSocketHandler(logging.Handler):
                 clients.remove(client)  # Remove the client if there's an error
 
 
-ws_handler = WebSocketHandler()  # Create a WebSocketHandler instance
+ws_handler = WebSocketHandler() 
 logger = logging.getLogger(
     TRACE_LOGGER_NAME
-)  # Get the logger instance with the TRACE_LOGGER_NAME
-logger.setLevel(logging.DEBUG)  # Set the logging level to DEBUG
-logger.addHandler(ws_handler)  # Add the WebSocket handler to the logger
+) 
+logger.setLevel(logging.DEBUG)  
+logger.addHandler(ws_handler)  
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()  # Accept the WebSocket connection
-    clients.append(websocket)  # Add the new client to the list of connected clients
-    runtime = SingleThreadedAgentRuntime()  # Create an instance of the agent runtime
+    await websocket.accept()  
+    clients.append(websocket)  
+    runtime = SingleThreadedAgentRuntime()  
 
     # Register the Delegator with the runtime, using the provided factory method
     await Delegator.register(
@@ -77,20 +77,19 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             user_input = (
                 await websocket.receive_text()
-            )  # Wait for user input from the WebSocket
-            log(source="RUNTIME", content="start", contentType=ContentType.SYSTEM)  # Log the start of the runtime
-            runtime.start()  # Start the runtime
+            )  
+            log(source="RUNTIME", content="start", contentType=ContentType.SYSTEM)  
+            runtime.start()  
 
-            # Publish the user input as a message to the delegator topic
             await runtime.publish_message(
                 Message(content=user_input),
                 topic_id=TopicId(delegator_topic, source="default"),
             )
 
-            await runtime.stop_when_idle()  # Stop the runtime when it is idle
-            log(source="RUNTIME", content="end", contentType=ContentType.SYSTEM)  # Log the end of the runtime
+            await runtime.stop_when_idle()  
+            log(source="RUNTIME", content="end", contentType=ContentType.SYSTEM)  
     except WebSocketDisconnect:
-        clients.remove(websocket)  # Remove the client on disconnection
+        clients.remove(websocket)  
         # await websocket.close()  # Close the WebSocket connection
 
 @app.get("/info/{key}")

@@ -18,7 +18,7 @@ class Task(BaseModel):
 class DelegatorList(BaseModel):
     tasks: list[Task]  # A list of tasks to be assigned to developers.
 
-ROOT = "~/Code/builtbyrobots/timemap"
+ROOT = "../builtbyrobots/timemap"
 
 system_message = """
 You are an engineering manager responsible for dividing a software task between 1 to 3 developer LLMs.
