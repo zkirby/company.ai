@@ -1,6 +1,9 @@
 import json
 from autogen_core import RoutedAgent, message_handler, MessageContext
 from autogen_core.models import SystemMessage, UserMessage
+from autogen_core.memory import ListMemory, MemoryContent
+from autogen_core.model_context import BufferedChatCompletionContext
+
 from pydantic import BaseModel
 from utils.models import SUPPORTED_MODELS, DEFAULT_MODEL
 from utils.log import log, ContentType
@@ -21,6 +24,13 @@ class BaseAgent(RoutedAgent):
         model_config = SUPPORTED_MODELS[self.model]
         self._model_client = model_config["get_model"](response_format)
         self._model_client_stream = model_config["get_model"](None)
+
+        self._memory_stream = ListMemory(name="streaming_memory")
+        self._memory = ListMemory(name="core_memory")
+        
+        self._memory_context = BufferedChatCompletionContext(buffer_size=10)
+        self._memory_context_stream = BufferedChatCompletionContext(buffer_size=20)
+
         self.response_format = response_format
         self.url_friendly_id = f"{self.id.key}|{self.id.type}"
         self.description = description
@@ -49,10 +59,17 @@ class BaseAgent(RoutedAgent):
 
     async def call(self, prompt: str) -> None:
         log(source=self.id, content=prompt, contentType=ContentType.MESSAGE)
+
+        content = MemoryContent(content=prompt, mime_type="text/plain")
+        await self._memory.add(content)
+        await self._memory_stream.add(content)
+        await self._memory.update_context(self._memory_context)
+        await self._memory_stream.update_context(self._memory_context_stream)
+
         llm_result = await self._model_client.create(
             messages=[
                 self._system_message,
-                UserMessage(content=prompt, source=self.id.key),
+                *await self._memory_context.get_messages()
             ],
         )
 
@@ -68,21 +85,23 @@ class BaseAgent(RoutedAgent):
             db_agent.output_tokens += output_tokens 
             db_agent.cost += cost
             await db.commit()
-
         log(source=self.id, content=json.dumps({ "cost": cost, "input_tokens": input_tokens, "output_tokens": output_tokens }), contentType=ContentType.INFO)
-
-        content = self.response_format.model_validate_json(llm_result.content)
-        return content
+        
+        return self.response_format.model_validate_json(llm_result.content)
 
     # TODO: Might want to find a way to expose the actual stream to another model/agent.
     async def stream(self, prompt: str) -> None:
-        pre_stream_input_tokens = self._model_client.total_usage().prompt_tokens
-        pre_stream_output_tokens = self._model_client.total_usage().completion_tokens
+        pre_stream_input_tokens = self._model_client_stream.total_usage().prompt_tokens
+        pre_stream_output_tokens = self._model_client_stream.total_usage().completion_tokens
+
+        content = MemoryContent(content=prompt, mime_type="text/plain")
+        await self._memory_stream.add(content)
+        await self._memory_stream.update_context(self._memory_context_stream)
 
         llm_stream = self._model_client_stream.create_stream(
             messages=[
                 self._system_message,
-                UserMessage(content=prompt, source=self.id.key),
+                *await self._memory_context_stream.get_messages()
             ],
         )
 
@@ -93,8 +112,8 @@ class BaseAgent(RoutedAgent):
                 log(source=self.id, content=chunk, contentType=ContentType.MESSAGE_STREAM)
                 output += chunk
 
-        post_stream_input_tokens = self._model_client.total_usage().prompt_tokens
-        post_stream_output_tokens = self._model_client.total_usage().completion_tokens
+        post_stream_input_tokens = self._model_client_stream.total_usage().prompt_tokens
+        post_stream_output_tokens = self._model_client_stream.total_usage().completion_tokens
 
         input_tokens = post_stream_input_tokens - pre_stream_input_tokens
         output_tokens = post_stream_output_tokens - pre_stream_output_tokens

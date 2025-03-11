@@ -156,13 +156,40 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
         />
         <ChatButton onClick={sendChatMessage}>Send</ChatButton>
       </ChatContainer>
-      <div>
+      <MessagesContainer>
         {messages.map((message, ix) => (
-          <div key={ix}>{message}</div>
+          <MessageBubble key={ix}>
+            <MessageText>{message}</MessageText>
+          </MessageBubble>
         ))}
-      </div>
+      </MessagesContainer>
     </InfoContainer>
   );
 };
+
+const MessagesContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px;
+`;
+
+const MessageBubble = styled.div`
+  background: #f0f0f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  max-width: 80%;
+  align-self: flex-start;
+`;
+
+const MessageText = styled.p`
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+`;
 
 export default AgentInfo;
