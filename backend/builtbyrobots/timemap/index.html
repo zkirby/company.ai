@@ -9,10 +9,10 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <script src="script.js" defer></script>
+    <script src="script.js" defer type="module"></script>
     <style>
       body {
-        font-family: 'Helvetica Neue', sans-serif;
+        font-family: "Helvetica Neue", sans-serif;
         margin: 0;
         padding: 0;
         background-color: #f8f9fa;
@@ -34,7 +34,8 @@
         max-width: 1200px;
         margin: auto;
       }
-      .map-section, .timeline-section {
+      .map-section,
+      .timeline-section {
         margin-bottom: 40px;
         background-color: #fff;
         padding: 20px;
@@ -92,6 +93,18 @@
       h2 {
         color: #333;
       }
+      .country-list {
+        margin-top: 20px;
+      }
+      .bullet-points {
+        margin-top: 20px;
+      }
+      .history-section {
+        margin-top: 20px;
+        background-color: #eef;
+        padding: 15px;
+        border-radius: 5px;
+      }
     </style>
   </head>
   <body class="body">
@@ -107,6 +120,12 @@
           style="width: 100%; height: 400px"
         ></div>
         <div id="location" class="location-display"></div>
+        <button id="zoom-in" class="zoom-button">Zoom In</button>
+        <button id="zoom-out" class="zoom-button">Zoom Out</button>
+      </section>
+      <section id="countryListSection" class="country-list-section">
+        <h2 class="country-list-title">Major Countries</h2>
+        <ul id="countryList" class="country-list"></ul>
       </section>
       <section id="timeline" class="timeline-section">
         <h2 class="timeline-title">Timeline Slider</h2>
@@ -114,7 +133,7 @@
           <input
             type="range"
             min="2000"
-            max="2023"
+            max="2025"
             value="2023"
             id="yearSlider"
             class="slider"
@@ -123,59 +142,188 @@
             Year: <span id="yearValue" class="year-value">2023</span>
           </p>
         </div>
+        <div id="bulletPoints" class="bullet-points"></div>
+      </section>
+      <section id="brazilHistory" class="history-section">
+        <h2>Historical Facts about Brazil</h2>
+        <ul id="brazilFactsList">
+          <li>1500: Pedro Álvares Cabral arrives in Brazil, claiming it for Portugal.</li>
+          <li>1822: Brazil declares independence from Portugal.</li>
+          <li>1888: Brazil becomes the last country in the Americas to abolish slavery.</li>
+          <li>1964: A military coup ousts President João Goulart.</li>
+          <li>2016: Brazil hosts the Summer Olympics in Rio de Janeiro.</li>
+        </ul>
+      </section>
+      <section id="spainHistory" class="history-section">
+        <h2>Fun Facts about Spain</h2>
+        <ul id="spainFactsList">
+          <li>Spain is known for its rich history, influenced by various cultures including the Romans, Moors, and Christians.</li>
+          <li>It is home to the world’s second-largest art museum, the Prado Museum in Madrid.</li>
+          <li>Spain has over 8,000 kilometers of coastline, offering numerous beautiful beaches.</li>
+          <li>The country hosts La Tomatina, a famous tomato-throwing festival in Buñol.</li>
+          <li>Spain is the birthplace of flamenco dance and music, showcasing its diverse cultural heritage.</li>
+          <li>There are 17 autonomous regions in Spain, each with its own distinct culture and traditions.</li>
+        </ul>
       </section>
     </main>
     <footer class="footer">
       <p>&copy; 2023 World History Explorer</p>
     </footer>
     <script>
-      // Map Initialization
-      const map = L.map('map-container').setView([20, 0], 2);
-      
-      // Tile Layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Initialize the map
+      const map = L.map("map-container").setView([20, 0], 2);
+
+      // Add OpenStreetMap tile layer
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
-        attribution: '© OpenStreetMap'
       }).addTo(map);
-      
-      // Sample Marker
-      const marker = L.marker([51.5, -0.09]).addTo(map);
-      marker.bindPopup('<b>Hello world!</b><br>I am a popup.').openPopup();
-      
+
+      // Coordinates of major countries for closest country detection
+      const countryCoordinates = {
+        "United States": [37.0902, -95.7129],
+        Canada: [56.1304, -106.3468],
+        Brazil: [-14.235, -51.9253],
+        "United Kingdom": [55.3781, -3.436],
+        Germany: [51.1657, 10.4515],
+        France: [46.6034, 1.8883],
+        Australia: [-25.2744, 133.7751],
+        India: [20.5937, 78.9629],
+        China: [35.8617, 104.1954],
+        Japan: [36.2048, 138.2529],
+        Russia: [61.524, 105.3188],
+        Italy: [41.8719, 12.5674],
+        "South Africa": [-30.5595, 22.9375],
+        Mexico: [23.6345, -102.5528],
+        Argentina: [-38.4161, -63.6167],
+        "South Korea": [35.9078, 127.7669],
+        Egypt: [26.8206, 30.8025],
+        Spain: [40.4637, -3.7492],
+        Netherlands: [52.1326, 5.2913],
+        Turkey: [38.9637, 35.2433],
+        "Saudi Arabia": [23.8859, 45.0792],
+        Sweden: [60.1282, 18.6435],
+        Norway: [60.472, 8.4689],
+        Finland: [61.9241, 25.7482],
+        Denmark: [56.2639, 9.5018],
+        Poland: [51.9194, 19.1451],
+      };
+
+      // Historical data for Canada
+      const canada_history = {
+        2000: ["Inception of the Canadian Internet Registry (CIRA)", "Historic event 2 in 2000"],
+        2001: ["Historic event 1 in 2001", "Historic event 2 in 2001"],
+        2002: ["Historic event 1 in 2002", "Historic event 2 in 2002"],
+        2003: ["Historic event 1 in 2003", "Historic event 2 in 2003"],
+        2004: ["Historic event 1 in 2004", "Historic event 2 in 2004"],
+        2005: ["Historic event 1 in 2005", "Historic event 2 in 2005"],
+        2006: ["Historic event 1 in 2006", "Historic event 2 in 2006"],
+        2007: ["Historic event 1 in 2007", "Historic event 2 in 2007"],
+        2008: ["Historic event 1 in 2008", "Historic event 2 in 2008"],
+        2009: ["Historic event 1 in 2009", "Historic event 2 in 2009"],
+        2010: ["Historic event 1 in 2010", "Historic event 2 in 2010"],
+        2011: ["Historic event 1 in 2011", "Historic event 2 in 2011"],
+        2012: ["Historic event 1 in 2012", "Historic event 2 in 2012"],
+        2013: ["Historic event 1 in 2013", "Historic event 2 in 2013"],
+        2014: ["Historic event 1 in 2014", "Historic event 2 in 2014"],
+        2015: ["Historic event 1 in 2015", "Historic event 2 in 2015"],
+        2016: ["Historic event 1 in 2016", "Historic event 2 in 2016"],
+        2017: ["Historic event 1 in 2017", "Historic event 2 in 2017"],
+        2018: ["Historic event 1 in 2018", "Historic event 2 in 2018"],
+        2019: ["Historic event 1 in 2019", "Historic event 2 in 2019"],
+        2020: ["Historic event 1 in 2020", "COVID-19 pandemic declaration"],
+        2021: ["Historic event 1 in 2021", "COVID-19 vaccine rollout"],
+        2022: ["Historic event 1 in 2022", "Major Climate Change Report release"],
+        2023: ["Historic event 1 in 2023", "Canada's 150th anniversary of confederation"],
+        2024: ["Historic event 1 in 2024", "New Indigenous Rights Legislation passed"],
+        2025: ["Historic event 1 in 2025", "Introduction of New Environmental Policies"]
+      };
+
       // Handle Map Click
-      map.on('click', function(e) {
+      map.on("click", function (e) {
         const lat = e.latlng.lat;
         const lon = e.latlng.lng;
-        const year = document.getElementById('yearSlider').value;
-        getLocationName(lat, lon, year);
+        const year = document.getElementById("yearSlider").value;
+        getClosestCountry(lat, lon, year);
       });
 
-      // Fetch location name based on lat, lon and year
-      async function getLocationName(latitude, longitude, year) {
-        // Attempting to fetch from geonames API
-        try {
-          const response = await fetch(`https://api.geonames.org/findNearbyPlaceNameJSON?lat=${latitude}&lng=${longitude}&username=demo`);
-          if (!response.ok) {
-            throw new Error('Geonames API error');
+      // Function to get the closest country based on lat, lon
+      function getClosestCountry(latitude, longitude, year) {
+        let closestCountry = null;
+        let minDistance = Infinity;
+
+        Object.entries(countryCoordinates).forEach(([country, coords]) => {
+          const distance = haversineDistance(
+            latitude,
+            longitude,
+            coords[0],
+            coords[1]
+          );
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestCountry = country;
           }
-          const data = await response.json();
-          const locationDiv = document.getElementById('location');
-          const placeName = data.geonames[0] ? data.geonames[0].name : 'Unknown Location';
-          locationDiv.innerHTML = `You clicked on: ${placeName} (Lat: ${latitude.toFixed(5)}, Lon: ${longitude.toFixed(5)}), Year: ${year}`;
-        } catch (error) {
-          // Fallback to alternative data source
-          console.error('Error fetching location name:', error);
-          const locationDiv = document.getElementById('location');
-          locationDiv.innerHTML = 'Error fetching location. Please try again later.';
+        });
+
+        const locationDiv = document.getElementById("location");
+        locationDiv.innerHTML = `You clicked near: ${closestCountry} (Lat: ${latitude.toFixed(
+          5
+        )}, Lon: ${longitude.toFixed(5)}), Year: ${year}`;
+
+        if (closestCountry === "Canada") {
+          updateBulletPoints(year);
         }
       }
 
-      // Timeline Slider functionality
-      const yearSlider = document.getElementById('yearSlider');
-      const yearValueDisplay = document.getElementById('yearValue');
+      // Function to update bullet points for Canada based on the selected year
+      function updateBulletPoints(year) {
+        const bulletPointsDiv = document.getElementById("bulletPoints");
+        bulletPointsDiv.innerHTML = "";
+        const points = canada_history[year];
+        if (points) {
+          points.forEach((point) => {
+            const listItem = document.createElement("p");
+            listItem.textContent = point;
+            bulletPointsDiv.appendChild(listItem);
+          });
+        } else {
+          bulletPointsDiv.textContent =
+            "No historical data available for this year.";
+        }
+      }
 
-      yearSlider.addEventListener('input', function() {
+      // Haversine distance calculation
+      function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radius of the Earth in km
+        const dLat = (lat2 - lat1) * (Math.PI / 180);
+        const dLon = (lon2 - lon1) * (Math.PI / 180);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1 * (Math.PI / 180)) *
+            Math.cos(lat2 * (Math.PI / 180)) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // Distance in km
+      }
+
+      // Timeline Slider functionality
+      const yearSlider = document.getElementById("yearSlider");
+      const yearValueDisplay = document.getElementById("yearValue");
+
+      yearSlider.addEventListener("input", function () {
         yearValueDisplay.textContent = yearSlider.value;
+        if (document.getElementById("location").innerText.includes("Canada")) {
+          updateBulletPoints(yearSlider.value);
+        }
+      });
+
+      // Zoom functionality
+      document.getElementById('zoom-in').addEventListener('click', function() {
+        map.setZoom(map.getZoom() + 1);
+      });
+
+      document.getElementById('zoom-out').addEventListener('click', function() {
+        map.setZoom(map.getZoom() - 1);
       });
     </script>
   </body>

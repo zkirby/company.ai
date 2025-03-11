@@ -7,10 +7,15 @@ logger = logging.getLogger(TRACE_LOGGER_NAME)
 
 DELIM = "[$]"
 
+class UserTopics(Enum):
+    CONVERSATION = "conversation"
+    TASK = "task"
+
 
 class ContentType(Enum):
     INTERACT = "interact"
     MESSAGE = "message" 
+    MESSAGE_STREAM = "message_stream"
     SYSTEM = "system"
     CREATE = "create"
     INFO = "info"

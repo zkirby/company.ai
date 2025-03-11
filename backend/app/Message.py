@@ -10,6 +10,14 @@ class Message:
     """
     content: str
 
+@dataclass
+class Conversation:
+    """
+    Represents a conversation with a model.
+    Attributes:
+        chat (str): The chat history.
+    """
+    chat: str
 
 @dataclass
 class TaskMessage:

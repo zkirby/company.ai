@@ -4,7 +4,7 @@ from autogen_core import (
     message_handler,
     type_subscription,
 )
-from Message import Message, TaskMessage, delegator_topic, builder_topic
+from Message import Message, TaskMessage, Conversation, delegator_topic, builder_topic
 from pydantic import BaseModel
 from utils.crawl_git import crawl_git_project, get_context_files
 from utils.log import log, ContentType
