@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import styled from "styled-components";
+import { useWebSocket } from "./WebSocketProvider";
 
 interface AgentInfoProps {
   id: string;
@@ -34,9 +35,58 @@ const Value = styled.span`
   color: #333;
 `;
 
+const ChatContainer = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+`;
+
+const ChatInput = styled.input`
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #c1c1c1;
+  border-radius: 5px;
+`;
+
+const ChatButton = styled.button`
+  padding: 0.5rem 1rem;
+  background-color: #ffab91;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  &:hover {
+    background-color: #ff8a65;
+  }
+`;
+
 const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
   const [info, setInfo] = useState<AgentStats | null>(null);
   const [error, setError] = useState<string>("");
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<string[]>([]);
+
+  const { subscribe, unsubscribe, sendMessage } = useWebSocket();
+
+  useEffect(() => {
+    setMessages([]);
+  }, [id]);
+
+  useEffect(() => {
+    subscribe("message_stream", id, (agent, payload) => {
+      console.log(payload);
+      setMessages((prevMessages) => {
+        if (prevMessages.length % 2 === 0) {
+          const last = prevMessages[prevMessages.length - 1];
+          return [...prevMessages.slice(0, -1), last + payload];
+        }
+        return [...prevMessages, payload];
+      });
+    });
+    return () => {
+      unsubscribe("message_stream", id);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchAgentInfo = async () => {
@@ -58,6 +108,16 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
 
     fetchAgentInfo();
   }, [id]);
+
+  const sendChatMessage = () => {
+    if (input.trim()) {
+      sendMessage("conversation", id, input);
+      setInput("");
+      setMessages((prevMessages) => {
+        return [...prevMessages, input];
+      });
+    }
+  };
 
   if (error) {
     return <div>Error: {error}</div>;
@@ -86,6 +146,21 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
         <Label>Output Tokens:</Label>
         <Value>{info.output_tokens}</Value>
       </InfoRow>
+
+      <ChatContainer>
+        <ChatInput
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Chat with agent..."
+          onKeyDown={(e) => e.key === "Enter" && sendChatMessage()}
+        />
+        <ChatButton onClick={sendChatMessage}>Send</ChatButton>
+      </ChatContainer>
+      <div>
+        {messages.map((message, ix) => (
+          <div key={ix}>{message}</div>
+        ))}
+      </div>
     </InfoContainer>
   );
 };

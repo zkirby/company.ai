@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import styled from "styled-components";
 import AgentInfo from "./AgentInfo";
-
-const ws = new WebSocket("ws://localhost:8000/ws");
+import { calculateBubblePlacements, drawChatBubble } from "./canvasUtils";
+import { AgentState } from "./types";
+import { useWebSocket } from "./WebSocketProvider";
 
 // Add these constants at the top of the file, after imports
 const CANVAS_WIDTH = 800;
@@ -33,15 +34,7 @@ function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
-  interface AgentState {
-    x: number;
-    y: number;
-    color: string;
-    type?: string;
-    targetX?: number;
-    targetY?: number;
-    isMoving?: boolean;
-  }
+  const { subscribe, unsubscribe, sendMessage } = useWebSocket();
 
   // Fetch projects and usage stats on mount
   useEffect(() => {
@@ -113,8 +106,6 @@ function Home() {
         }
       );
 
-      console.log(await response.json());
-
       if (response.ok) {
         await fetchUsageStats();
       }
@@ -123,145 +114,133 @@ function Home() {
     }
   };
 
-  // Handle WebSocket messages
   useEffect(() => {
-    ws.onmessage = (event) => {
-      const data = event.data;
+    subscribe("interact", "home", (agent, payload) => {
+      setAgents((prev) => {
+        const updatedAgents = { ...prev };
+        if (!updatedAgents[agent]) {
+          updatedAgents[agent] = {
+            x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
+            y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
+            color: getRandomColor(),
+          };
+        }
+        if (!updatedAgents[payload]) {
+          updatedAgents[payload] = {
+            x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
+            y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
+            color: getRandomColor(),
+          };
+        }
 
-      // Check message type
-      const [agent, type, payload] = data.split("[$]");
+        // Calculate positions for the interaction
+        const centerX = (updatedAgents[agent].x + updatedAgents[payload].x) / 2;
+        const centerY = (updatedAgents[agent].y + updatedAgents[payload].y) / 2;
 
-      switch (type) {
-        case "interact": {
-          // Create agents if they don't exist
-          setAgents((prev) => {
-            const updatedAgents = { ...prev };
-            if (!updatedAgents[agent]) {
-              updatedAgents[agent] = {
-                x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
-                y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
-                color: getRandomColor(),
-              };
-            }
-            if (!updatedAgents[payload]) {
-              updatedAgents[payload] = {
-                x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
-                y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
-                color: getRandomColor(),
-              };
-            }
+        // Position agents on either side of the center point
+        updatedAgents[agent] = {
+          ...updatedAgents[agent],
+          targetX: centerX - INTERACTION_DISTANCE / 2,
+          targetY: centerY,
+          isMoving: true,
+        };
 
-            // Calculate positions for the interaction
-            const centerX =
-              (updatedAgents[agent].x + updatedAgents[payload].x) / 2;
-            const centerY =
-              (updatedAgents[agent].y + updatedAgents[payload].y) / 2;
+        updatedAgents[payload] = {
+          ...updatedAgents[payload],
+          targetX: centerX + INTERACTION_DISTANCE / 2,
+          targetY: centerY,
+          isMoving: true,
+        };
 
-            // Position agents on either side of the center point
-            updatedAgents[agent] = {
-              ...updatedAgents[agent],
-              targetX: centerX - INTERACTION_DISTANCE / 2,
-              targetY: centerY,
-              isMoving: true,
-            };
+        return updatedAgents;
+      });
 
-            updatedAgents[payload] = {
-              ...updatedAgents[payload],
-              targetX: centerX + INTERACTION_DISTANCE / 2,
-              targetY: centerY,
-              isMoving: true,
-            };
+      // Add interaction message
+      setMessages((prev) => [
+        [agent, "interact", `Interacting with ${payload}`],
+        ...prev,
+      ]);
+    });
 
-            return updatedAgents;
-          });
-
-          // Add interaction message
-          setMessages((prev) => [
-            [agent, type, `Interacting with ${payload}`],
+    subscribe("create", "home", (agent, payload) => {
+      setAgents((prev) => {
+        if (!prev[agent]) {
+          return {
             ...prev,
-          ]);
-          break;
+            [agent]: {
+              x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
+              y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
+              color: getRandomColor(),
+              type: payload,
+            },
+          };
         }
-        case "create": {
-          // Handle agent creation
-          setAgents((prev) => {
-            if (!prev[agent]) {
-              return {
-                ...prev,
-                [agent]: {
-                  x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
-                  y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
-                  color: getRandomColor(),
-                  type: payload,
-                },
-              };
-            }
-            return prev;
-          });
+        return prev;
+      });
 
-          // Add creation message
-          setMessages((prev) => [
-            [agent, type, `Agent created as ${payload}`],
-            ...prev,
-          ]);
-          break;
-        }
+      // Add creation message
+      setMessages((prev) => [
+        [agent, "create", `Agent created as ${payload}`],
+        ...prev,
+      ]);
+    });
 
-        case "info": {
-          try {
-            const info = JSON.parse(payload);
-            setTotalTokens(
-              (prev) => prev + info.input_tokens + info.output_tokens
-            );
-            setTotalCost((prev) => prev + info.cost);
-          } catch (error) {
-            console.error("Error processing info message:", error);
-          }
-          break;
-        }
-
-        case "message": {
-          // Handle regular messages
-          try {
-            // Add agent if it doesn't exist
-            setAgents((prev) => {
-              if (!prev[agent]) {
-                return {
-                  ...prev,
-                  [agent]: {
-                    x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
-                    y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
-                    color: getRandomColor(),
-                  },
-                };
-              }
-              return prev;
-            });
-
-            // Add message to list
-            setMessages((prev) => [[agent, type, payload], ...prev]);
-          } catch (error) {
-            console.error("Error processing message:", error);
-          }
-          break;
-        }
-
-        case "system": {
-          // Only add message to list without creating new agent
-          try {
-            setMessages((prev) => [[agent, type, payload], ...prev]);
-          } catch (error) {
-            console.error("Error processing message:", error);
-          }
-          break;
-        }
+    subscribe("info", "home", (_, payload) => {
+      try {
+        const info = JSON.parse(payload);
+        setTotalTokens((prev) => prev + info.input_tokens + info.output_tokens);
+        setTotalCost((prev) => prev + info.cost);
+      } catch (error) {
+        console.error("Error processing info message:", error);
       }
-    };
+    });
+
+    subscribe("message", "home", (agent, payload) => {
+      // Add agent if it doesn't exist
+      setAgents((prev) => {
+        if (!prev[agent]) {
+          return {
+            ...prev,
+            [agent]: {
+              x: Math.random() * (CANVAS_WIDTH - 2 * MARGIN) + MARGIN,
+              y: Math.random() * (CANVAS_HEIGHT - 2 * MARGIN) + MARGIN,
+              color: getRandomColor(),
+              activity: {
+                message: payload,
+                timestamp: Date.now(),
+              },
+            },
+          };
+        }
+        return {
+          ...prev,
+          [agent]: {
+            ...prev[agent],
+            activity: {
+              message: payload,
+              timestamp: Date.now(),
+            },
+          },
+        };
+      });
+
+      // Add message to list
+      setMessages((prev) => [[agent, "message", payload], ...prev]);
+    });
+
+    subscribe("system", "home", (agent, payload) => {
+      setMessages((prev) => [[agent, "system", payload], ...prev]);
+    });
 
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      unsubscribe("interact", "home");
+      unsubscribe("create", "home");
+      unsubscribe("info", "home");
+      unsubscribe("message", "home");
+      unsubscribe("system", "home");
     };
   }, []);
 
@@ -302,6 +281,8 @@ function Home() {
 
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
+    const placements = calculateBubblePlacements(agents, canvasRef);
+
     Object.entries(agents).forEach(([name, agent]) => {
       ctx.beginPath();
       ctx.arc(agent.x, agent.y, AGENT_RADIUS, 0, Math.PI * 2);
@@ -314,6 +295,22 @@ function Home() {
       ctx.fillText(name, agent.x, agent.y - (AGENT_RADIUS + 5));
       if (agent.type) {
         ctx.fillText(agent.type, agent.x, agent.y - (AGENT_RADIUS + 20));
+      }
+
+      if (agent.activity) {
+        const messageAge = Date.now() - agent.activity.timestamp;
+        if (messageAge < 10000) {
+          const placement = placements[name];
+          drawChatBubble(
+            ctx,
+            agent.x,
+            agent.y,
+            agent.activity.message,
+            agent.color,
+            placement.direction,
+            placement.offset
+          );
+        }
       }
     });
   }, [agents]);
@@ -387,9 +384,9 @@ function Home() {
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
-  const sendMessage = () => {
-    if (ws.readyState === WebSocket.OPEN && input.trim()) {
-      ws.send(input);
+  const sendWsMessage = () => {
+    if (input.trim()) {
+      sendMessage("task", "delegator", input);
       setInput("");
     }
   };
@@ -510,9 +507,9 @@ function Home() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask something..."
-            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            onKeyDown={(e) => e.key === "Enter" && sendWsMessage()}
           />
-          <Button onClick={sendMessage}>Submit</Button>
+          <Button onClick={sendWsMessage}>Submit</Button>
         </ControlArea>
       </MainPanel>
 

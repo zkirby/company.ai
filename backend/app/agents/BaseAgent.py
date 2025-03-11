@@ -20,6 +20,7 @@ class BaseAgent(RoutedAgent):
 
         model_config = SUPPORTED_MODELS[self.model]
         self._model_client = model_config["get_model"](response_format)
+        self._model_client_stream = model_config["get_model"](None)
         self.response_format = response_format
         self.url_friendly_id = f"{self.id.key}|{self.id.type}"
         self.description = description
@@ -78,7 +79,7 @@ class BaseAgent(RoutedAgent):
         pre_stream_input_tokens = self._model_client.total_usage().prompt_tokens
         pre_stream_output_tokens = self._model_client.total_usage().completion_tokens
 
-        llm_stream = self._model_client.create_stream(
+        llm_stream = self._model_client_stream.create_stream(
             messages=[
                 self._system_message,
                 UserMessage(content=prompt, source=self.id.key),
@@ -88,8 +89,9 @@ class BaseAgent(RoutedAgent):
         output = ""
 
         async for chunk in llm_stream:
-            log(source=self.id, content=chunk.content, contentType=ContentType.MESSAGE_STREAM)
-            output += chunk.content
+            if (type(chunk) == str):
+                log(source=self.id, content=chunk, contentType=ContentType.MESSAGE_STREAM)
+                output += chunk
 
         post_stream_input_tokens = self._model_client.total_usage().prompt_tokens
         post_stream_output_tokens = self._model_client.total_usage().completion_tokens
