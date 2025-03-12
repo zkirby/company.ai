@@ -1,9 +1,15 @@
+html, body, #root {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
 body {
     background-color: #ffffff; /* Changed to mostly white background */
     font-family: 'Arial', sans-serif; /* Improved font */
     color: #333; /* Darker text color for better readability */
-    margin: 0;
-    padding: 0;
 }
 
 h1, h2, h3, h4, h5, h6 {
