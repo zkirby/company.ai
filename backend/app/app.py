@@ -24,6 +24,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow any HTTP headers
 )
 clients: list[WebSocket] = [] 
+runtime = SingleThreadedAgentRuntime()
 
 
 class WebSocketHandler(logging.Handler):
@@ -52,25 +53,33 @@ logger = logging.getLogger(
 logger.setLevel(logging.DEBUG)  
 logger.addHandler(ws_handler)  
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()  
-    clients.append(websocket)  
-    runtime = SingleThreadedAgentRuntime()  
-
-    # Register the Delegator with the runtime, using the provided factory method
+async def setup_runtime():
+    """Initialize the runtime with all necessary agent registrations"""
+    global runtime
+    
+    # Register the Delegator with the runtime
     await Delegator.register(
         runtime,
         type=delegator_topic,
         factory=lambda: Delegator(),
     )
 
-    # Register the Builder with the runtime, using the provided factory method
+    # Register the Builder with the runtime
     await Builder.register(
         runtime,
         type=builder_topic,
         factory=lambda: Builder(),
     )
+
+@app.on_event("startup")
+async def startup_event():
+    """Run any startup tasks"""
+    await setup_runtime()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()  
+    clients.append(websocket)
 
     try:
         while True:
@@ -108,6 +117,68 @@ async def get_value(key: str):
         if agent is None:
             return {"cost": 0, "model": "none", "input_tokens": 0, "output_tokens": 0}
         return {"cost": agent.cost, "model": agent.model, "input_tokens": agent.input_tokens, "output_tokens": agent.output_tokens}
+
+@app.get("/models")
+async def get_models():
+    from utils.models import SUPPORTED_MODELS
+    # Return model names and their associated pricing info
+    models = {
+        model_name: {
+            "price": model_info["price"],
+            "context_window": model_info["context_window"]
+        } 
+        for model_name, model_info in SUPPORTED_MODELS.items()
+    }
+    return models
+
+@app.put("/agents/{key}/model")
+async def update_agent_model(key: str, model_data: dict):
+    from utils.models import SUPPORTED_MODELS
+    
+    model_name = model_data.get("model")
+    if model_name not in SUPPORTED_MODELS:
+        raise HTTPException(status_code=400, detail=f"Model {model_name} not supported")
+    
+    # First update in database
+    async with get_db_context() as db:
+        result = await db.execute(select(Agent).filter(Agent.id == key, Agent.project_id == GLOBAL_PROJECT_ID))
+        agent = result.scalar_one_or_none()
+        if agent is None:
+            raise HTTPException(status_code=404, detail="Agent not found")
+        
+        agent.model = model_name
+        await db.commit()
+    
+    # Then, if the agent is in memory, also update its runtime configuration
+    try:
+        # Get the agent type and key from the database ID
+        key_parts = key.split("|")
+        if len(key_parts) != 2:
+            raise HTTPException(status_code=400, detail="Invalid agent key format")
+        
+        agent_type, agent_key = key_parts
+        
+        # Find the correct agent in the runtime
+        # For Delegator
+        if agent_type == delegator_topic:
+            agent_instance = await runtime.get_agent(
+                topic_id=TopicId(agent_type, source=agent_key)
+            )
+            if agent_instance:
+                await agent_instance.update_model(model_name)
+        
+        # For Builder
+        elif agent_type == builder_topic:
+            agent_instance = await runtime.get_agent(
+                topic_id=TopicId(agent_type, source=agent_key)
+            )
+            if agent_instance:
+                await agent_instance.update_model(model_name)
+    except Exception as e:
+        # Don't fail the request if this part fails (agent might not be loaded yet)
+        log(source="RUNTIME", content=f"Error updating agent model: {str(e)}", contentType=ContentType.ERROR)
+        
+    return {"message": f"Updated agent model to {model_name}"}
 
 @app.post("/projects/")
 async def create_project(project: dict):

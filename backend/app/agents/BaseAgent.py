@@ -20,10 +20,9 @@ class BaseAgent(RoutedAgent):
         super().__init__(description)
         self._system_message = SystemMessage(content=system_message) 
         self.model = DEFAULT_MODEL
-
-        model_config = SUPPORTED_MODELS[self.model]
-        self._model_client = model_config["get_model"](response_format)
-        self._model_client_stream = model_config["get_model"](None)
+        self.response_format = response_format
+        
+        self._initialize_model_clients()
 
         self._memory_stream = ListMemory(name="streaming_memory")
         self._memory = ListMemory(name="core_memory")
@@ -31,12 +30,17 @@ class BaseAgent(RoutedAgent):
         self._memory_context = BufferedChatCompletionContext(buffer_size=10)
         self._memory_context_stream = BufferedChatCompletionContext(buffer_size=20)
 
-        self.response_format = response_format
         self.url_friendly_id = f"{self.id.key}|{self.id.type}"
         self.description = description
 
         import asyncio
         asyncio.create_task(self.create_agent())
+        
+    def _initialize_model_clients(self):
+        """Initialize or reinitialize model clients when model changes"""
+        model_config = SUPPORTED_MODELS[self.model]
+        self._model_client = model_config["get_model"](self.response_format)
+        self._model_client_stream = model_config["get_model"](None)
 
     async def create_agent(self):
         async with get_db_context() as db:
@@ -135,3 +139,25 @@ class BaseAgent(RoutedAgent):
     @message_handler
     async def handle_conversation(self, message: Conversation, ctx: MessageContext) -> None:
         await self.stream(message.chat)
+        
+    async def update_model(self, model_name: str) -> None:
+        """
+        Update the agent's model and reinitialize the model clients
+        """
+        if model_name not in SUPPORTED_MODELS:
+            log(source=self.id, content=f"Model {model_name} not supported", contentType=ContentType.ERROR)
+            return
+            
+        # Update the model in the database
+        async with get_db_context() as db:
+            result = await db.execute(select(Agent).filter(Agent.id == self.url_friendly_id, Agent.project_id == GLOBAL_PROJECT_ID))
+            db_agent = result.scalar_one_or_none()
+            if db_agent:
+                db_agent.model = model_name
+                await db.commit()
+        
+        # Update the model and reinitialize clients
+        self.model = model_name
+        self._initialize_model_clients()
+        
+        log(source=self.id, content=f"Model updated to {model_name}", contentType=ContentType.INFO)

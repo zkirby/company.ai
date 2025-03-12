@@ -13,6 +13,19 @@ interface AgentStats {
   output_tokens: number;
 }
 
+interface ModelInfo {
+  price: {
+    divisor: number;
+    input: number;
+    output: number;
+  };
+  context_window: number;
+}
+
+interface ModelsResponse {
+  [key: string]: ModelInfo;
+}
+
 const InfoContainer = styled.div`
   padding: 12px;
   border: 1px solid #ddd;
@@ -60,11 +73,22 @@ const ChatButton = styled.button`
   }
 `;
 
+const ModelSelect = styled.select`
+  padding: 0.4rem;
+  border: 1px solid #c1c1c1;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+`;
+
 const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
   const [info, setInfo] = useState<AgentStats | null>(null);
   const [error, setError] = useState<string>("");
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<string[]>([]);
+  const [models, setModels] = useState<string[]>([]);
+  const [isModelLoading, setIsModelLoading] = useState<boolean>(false);
 
   const { subscribe, unsubscribe, sendMessage } = useWebSocket();
 
@@ -108,6 +132,27 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
 
     fetchAgentInfo();
   }, [id]);
+  
+  // Fetch available models
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        setIsModelLoading(true);
+        const response = await fetch("http://localhost:8000/models");
+        if (!response.ok) {
+          throw new Error("Failed to fetch models");
+        }
+        const data: ModelsResponse = await response.json();
+        setModels(Object.keys(data));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load models");
+      } finally {
+        setIsModelLoading(false);
+      }
+    };
+    
+    fetchModels();
+  }, []);
 
   const sendChatMessage = () => {
     if (input.trim()) {
@@ -116,6 +161,44 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
       setMessages((prevMessages) => {
         return [...prevMessages, input];
       });
+    }
+  };
+  
+  const handleModelChange = async (modelName: string) => {
+    if (!modelName || !info) return;
+    
+    try {
+      const [key, type] = id.split("/");
+      const urlFriendlyId = `${type}|${key}`;
+      
+      const response = await fetch(
+        `http://localhost:8000/agents/${urlFriendlyId}/model`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ model: modelName }),
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to update model");
+      }
+      
+      // Update local state
+      setInfo({
+        ...info,
+        model: modelName,
+      });
+      
+      // Add a system message indicating the model was changed
+      setMessages((prevMessages) => {
+        return [...prevMessages, `System: Model changed to ${modelName}`];
+      });
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update model");
     }
   };
 
@@ -132,7 +215,20 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
       <h1>About {id}</h1>
       <InfoRow>
         <Label>Model:</Label>
-        <Value>{info.model}</Value>
+        {isModelLoading ? (
+          <Value>Loading models...</Value>
+        ) : (
+          <ModelSelect 
+            value={info.model}
+            onChange={(e) => handleModelChange(e.target.value)}
+          >
+            {models.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </ModelSelect>
+        )}
       </InfoRow>
       <InfoRow>
         <Label>Cost:</Label>
