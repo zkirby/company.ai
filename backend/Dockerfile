@@ -1,23 +1,18 @@
-# Use the official Python image
-FROM python:3.12.9
+FROM node:20-slim
 
-# Set the working directory
 WORKDIR /app
 
-# Copy the requirements file
-COPY requirements.txt .
+# Copy package.json and package-lock.json
+COPY package*.json ./
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN npm install
 
-# Install Uvicorn (if not already in requirements.txt)
-RUN pip install uvicorn
-
-# Copy the FastAPI app into the container
+# Copy the rest of the application
 COPY . .
 
-# Expose port 8000 for FastAPI
+# Expose the port the app will run on
 EXPOSE 8000
 
-# Start Uvicorn server
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Command to run the application
+CMD ["npm", "start"]
