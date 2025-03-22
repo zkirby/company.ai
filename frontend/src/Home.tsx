@@ -30,15 +30,16 @@ const AISLE_WIDTH = 100; // Space between rows of cubicles
 const getCubiclePosition = (index: number) => {
   const row = Math.floor(index / CUBICLES_PER_ROW);
   const col = index % CUBICLES_PER_ROW;
-  
+
   // Add an aisle after every two rows
   const aisleOffset = Math.floor(row / 2) * AISLE_WIDTH;
-  
+
   return {
     x: OFFICE_START_X + col * CUBICLE_WIDTH,
     y: OFFICE_START_Y + row * CUBICLE_HEIGHT + aisleOffset,
     deskX: OFFICE_START_X + col * CUBICLE_WIDTH + DESK_SPACING_X / 2,
-    deskY: OFFICE_START_Y + row * CUBICLE_HEIGHT + DESK_SPACING_Y / 2 + aisleOffset
+    deskY:
+      OFFICE_START_Y + row * CUBICLE_HEIGHT + DESK_SPACING_Y / 2 + aisleOffset,
   };
 };
 
@@ -74,7 +75,7 @@ const Agent = ({
         draw={(g) => {
           g.clear();
           g.beginFill(colorValue);
-          
+
           if (agent.isSitting) {
             // Sitting agent (smaller circle for head + rectangle for body)
             g.drawCircle(0, -5, AGENT_RADIUS - 2); // Head
@@ -83,11 +84,11 @@ const Agent = ({
             // Standing agent (just a circle)
             g.drawCircle(0, 0, AGENT_RADIUS);
           }
-          
+
           g.endFill();
         }}
       />
-      
+
       {/* Agent name label */}
       <Text
         text={name}
@@ -95,7 +96,7 @@ const Agent = ({
         position={[0, -(AGENT_RADIUS + 10)]}
         style={{ fontSize: 12, fill: 0x000000 }}
       />
-      
+
       {/* Agent type label */}
       {agent.type && (
         <Text
@@ -105,7 +106,7 @@ const Agent = ({
           style={{ fontSize: 12, fill: 0x000000 }}
         />
       )}
-      
+
       {/* Message bubble */}
       {agent.activity && Date.now() - agent.activity.timestamp < 10000 && (
         <MessageBubble message={agent.activity.message} color={agent.color} />
@@ -188,29 +189,29 @@ const Office = () => {
       <Graphics
         draw={(g) => {
           g.clear();
-          
+
           // Draw office floor
-          g.beginFill(0xEEEEEE);
+          g.beginFill(0xeeeeee);
           g.drawRect(
-            OFFICE_START_X - 100, 
-            OFFICE_START_Y - 100, 
-            CUBICLES_PER_ROW * CUBICLE_WIDTH + 200, 
+            OFFICE_START_X - 100,
+            OFFICE_START_Y - 100,
+            CUBICLES_PER_ROW * CUBICLE_WIDTH + 200,
             Math.ceil(20 / CUBICLES_PER_ROW) * CUBICLE_HEIGHT + 300
           );
           g.endFill();
-          
+
           // Draw office walls
           g.lineStyle(5, 0x999999, 1);
           g.drawRect(
-            OFFICE_START_X - 100, 
-            OFFICE_START_Y - 100, 
-            CUBICLES_PER_ROW * CUBICLE_WIDTH + 200, 
+            OFFICE_START_X - 100,
+            OFFICE_START_Y - 100,
+            CUBICLES_PER_ROW * CUBICLE_WIDTH + 200,
             Math.ceil(20 / CUBICLES_PER_ROW) * CUBICLE_HEIGHT + 300
           );
-          
+
           // Draw entrance
           g.lineStyle(0);
-          g.beginFill(0xDDDDDD);
+          g.beginFill(0xdddddd);
           g.drawRect(
             OFFICE_START_X + (CUBICLES_PER_ROW * CUBICLE_WIDTH) / 2 - 50,
             OFFICE_START_Y - 100,
@@ -220,7 +221,7 @@ const Office = () => {
           g.endFill();
         }}
       />
-      
+
       {/* Draw cubicles */}
       {Array.from({ length: 20 }).map((_, index) => {
         const cubicle = getCubiclePosition(index);
@@ -229,30 +230,25 @@ const Office = () => {
             key={`cubicle-${index}`}
             draw={(g) => {
               // Draw desk
-              g.beginFill(0x8B4513); // Brown for desk
-              g.drawRect(
-                cubicle.deskX, 
-                cubicle.deskY, 
-                DESK_WIDTH, 
-                DESK_HEIGHT
-              );
+              g.beginFill(0x8b4513); // Brown for desk
+              g.drawRect(cubicle.deskX, cubicle.deskY, DESK_WIDTH, DESK_HEIGHT);
               g.endFill();
-              
+
               // Draw cubicle walls (3 sides, leaving one side open)
-              g.lineStyle(3, 0xAAAAAA, 1);
-              
+              g.lineStyle(3, 0xaaaaaa, 1);
+
               // Left wall
               g.moveTo(cubicle.x, cubicle.y);
               g.lineTo(cubicle.x, cubicle.y + CUBICLE_HEIGHT);
-              
+
               // Back wall
               g.moveTo(cubicle.x, cubicle.y);
               g.lineTo(cubicle.x + CUBICLE_WIDTH, cubicle.y);
-              
+
               // Right wall
               g.moveTo(cubicle.x + CUBICLE_WIDTH, cubicle.y);
               g.lineTo(cubicle.x + CUBICLE_WIDTH, cubicle.y + CUBICLE_HEIGHT);
-              
+
               // Draw chair
               g.beginFill(0x333333);
               g.drawCircle(
@@ -261,7 +257,7 @@ const Office = () => {
                 10
               );
               g.endFill();
-              
+
               // Draw computer
               g.beginFill(0x444444);
               g.drawRect(
@@ -271,7 +267,7 @@ const Office = () => {
                 25
               );
               g.endFill();
-              
+
               // Draw monitor stand
               g.beginFill(0x666666);
               g.drawRect(
@@ -306,13 +302,15 @@ const World = ({
     app.stage.eventMode = "static";
 
     // Center the view on the office
-    const centerOfficeX = OFFICE_START_X + (CUBICLES_PER_ROW * CUBICLE_WIDTH) / 2;
-    const centerOfficeY = OFFICE_START_Y + (Math.ceil(20 / CUBICLES_PER_ROW) * CUBICLE_HEIGHT) / 2;
-    
+    const centerOfficeX =
+      OFFICE_START_X + (CUBICLES_PER_ROW * CUBICLE_WIDTH) / 2;
+    const centerOfficeY =
+      OFFICE_START_Y + (Math.ceil(20 / CUBICLES_PER_ROW) * CUBICLE_HEIGHT) / 2;
+
     // Center the office in the viewport
     app.stage.position.x = app.screen.width / 2 - centerOfficeX;
     app.stage.position.y = app.screen.height / 2 - centerOfficeY;
-    
+
     // Set initial scale
     app.stage.scale.x = 0.7;
     app.stage.scale.y = 0.7;
@@ -448,7 +446,7 @@ const World = ({
           g.drawRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
         }}
       />
-      
+
       {/* Render office environment */}
       <Office />
 
@@ -522,8 +520,8 @@ function Home() {
     try {
       const response = await fetch(`http://localhost:8000/projects/active`);
       const data = await response.json();
-      setTotalTokens(data.total_tokens);
-      setTotalCost(data.total_cost);
+      setTotalTokens(data.totalTokens);
+      setTotalCost(data.totalCost);
     } catch (error) {
       console.error("Error fetching usage stats:", error);
     }
@@ -583,21 +581,24 @@ function Home() {
   };
 
   // Helper function to assign available cubicles to agents
-  const assignCubicle = (agentName: string, existingAgents: Record<string, AgentState>) => {
+  const assignCubicle = (
+    agentName: string,
+    existingAgents: Record<string, AgentState>
+  ) => {
     // Get all currently assigned cubicles
     const assignedCubicles = new Set<number>();
-    Object.values(existingAgents).forEach(agent => {
+    Object.values(existingAgents).forEach((agent) => {
       if (agent.cubicleIndex !== undefined) {
         assignedCubicles.add(agent.cubicleIndex);
       }
     });
-    
+
     // Find an available cubicle
     let cubicleIndex = 0;
     while (assignedCubicles.has(cubicleIndex) && cubicleIndex < 20) {
       cubicleIndex++;
     }
-    
+
     // If we found a cubicle, return it
     if (cubicleIndex < 20) {
       const cubicle = getCubiclePosition(cubicleIndex);
@@ -607,7 +608,7 @@ function Home() {
         y: cubicle.deskY + DESK_HEIGHT + 15, // Position on the chair
       };
     }
-    
+
     // If all cubicles are taken, return a random position outside the office
     return {
       cubicleIndex: undefined,
@@ -620,7 +621,7 @@ function Home() {
     subscribe("interact", "home", (agent, payload) => {
       setAgents((prev) => {
         const updatedAgents = { ...prev };
-        
+
         // Create agents if they don't exist
         if (!updatedAgents[agent]) {
           const cubicle = assignCubicle(agent, updatedAgents);
@@ -632,7 +633,7 @@ function Home() {
             isSitting: true,
           };
         }
-        
+
         if (!updatedAgents[payload]) {
           const cubicle = assignCubicle(payload, updatedAgents);
           updatedAgents[payload] = {
@@ -643,21 +644,21 @@ function Home() {
             isSitting: true,
           };
         }
-        
+
         // Get the target agent's cubicle
         const targetAgent = updatedAgents[payload];
-        
+
         // Start the interaction sequence by having the initiating agent stand up
         updatedAgents[agent] = {
           ...updatedAgents[agent],
           isSitting: false,
-          interactionState: 'moving-out',
+          interactionState: "moving-out",
           interactingWith: payload,
           targetX: updatedAgents[agent].x + 30, // First move out of the cubicle
           targetY: updatedAgents[agent].y + 30,
           isMoving: true,
         };
-        
+
         return updatedAgents;
       });
 
@@ -697,7 +698,7 @@ function Home() {
     subscribe("info", "home", (_, payload) => {
       try {
         const info = JSON.parse(payload);
-        setTotalTokens((prev) => prev + info.input_tokens + info.output_tokens);
+        setTotalTokens((prev) => prev + info.inputTokens + info.outputTokens);
         setTotalCost((prev) => prev + info.cost);
       } catch (error) {
         console.error("Error processing info message:", error);
@@ -796,36 +797,37 @@ function Home() {
                 y: agent.targetY,
                 isMoving: false,
               };
-              
+
               // Handle interaction state transitions
               if (agent.interactionState && agent.interactingWith) {
                 const targetAgent = updatedAgents[agent.interactingWith];
-                
-                if (agent.interactionState === 'moving-out') {
+
+                if (agent.interactionState === "moving-out") {
                   // Agent has moved out of cubicle, now go to target agent's location
                   if (targetAgent && targetAgent.cubicleIndex !== undefined) {
-                    const targetCubicle = getCubiclePosition(targetAgent.cubicleIndex);
+                    const targetCubicle = getCubiclePosition(
+                      targetAgent.cubicleIndex
+                    );
                     updatedAgents[name] = {
                       ...updatedAgents[name],
-                      interactionState: 'moving-to-target',
+                      interactionState: "moving-to-target",
                       targetX: targetCubicle.x + CUBICLE_WIDTH / 2, // Stand in front of the cubicle
                       targetY: targetCubicle.y + CUBICLE_HEIGHT + 20,
                       isMoving: true,
                     };
                   }
-                } 
-                else if (agent.interactionState === 'moving-to-target') {
+                } else if (agent.interactionState === "moving-to-target") {
                   // Agent has arrived at target's cubicle, start interacting
                   updatedAgents[name] = {
                     ...updatedAgents[name],
-                    interactionState: 'interacting',
+                    interactionState: "interacting",
                     // Add message bubble
                     activity: {
                       message: `Hey ${agent.interactingWith}, let's chat!`,
                       timestamp: Date.now(),
                     },
                   };
-                  
+
                   // Have the target agent respond
                   if (targetAgent) {
                     updatedAgents[agent.interactingWith] = {
@@ -836,7 +838,7 @@ function Home() {
                       },
                     };
                   }
-                  
+
                   // Set a timeout to return to cubicle
                   setTimeout(() => {
                     setAgents((prevAgents) => {
@@ -844,21 +846,24 @@ function Home() {
                       if (agents[name]) {
                         agents[name] = {
                           ...agents[name],
-                          interactionState: 'returning',
+                          interactionState: "returning",
                           isMoving: true,
-                          targetX: agents[name].cubicleIndex !== undefined ? 
-                            getCubiclePosition(agents[name].cubicleIndex).x :
-                            Math.random() * WORLD_WIDTH,
-                          targetY: agents[name].cubicleIndex !== undefined ? 
-                            getCubiclePosition(agents[name].cubicleIndex).y + CUBICLE_HEIGHT/2 :
-                            Math.random() * WORLD_HEIGHT,
+                          targetX:
+                            agents[name].cubicleIndex !== undefined
+                              ? getCubiclePosition(agents[name].cubicleIndex).x
+                              : Math.random() * WORLD_WIDTH,
+                          targetY:
+                            agents[name].cubicleIndex !== undefined
+                              ? getCubiclePosition(agents[name].cubicleIndex)
+                                  .y +
+                                CUBICLE_HEIGHT / 2
+                              : Math.random() * WORLD_HEIGHT,
                         };
                       }
                       return agents;
                     });
                   }, 5000); // Wait 5 seconds before returning
-                }
-                else if (agent.interactionState === 'returning') {
+                } else if (agent.interactionState === "returning") {
                   // Agent has returned to cubicle, sit back down
                   if (agent.cubicleIndex !== undefined) {
                     const cubicle = getCubiclePosition(agent.cubicleIndex);
@@ -886,7 +891,7 @@ function Home() {
                   targetY: undefined,
                 };
               }
-              
+
               hasChanges = true;
             }
           }

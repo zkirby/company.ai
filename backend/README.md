@@ -1,6 +1,6 @@
-# Builder.ai Backend (Node.js)
+# Builder.ai Backend (TypeScript)
 
-This is the Node.js backend for Builder.ai, using Vercel's AI SDK for LLM integration.
+This is the TypeScript backend for Builder.ai, using Vercel's AI SDK for LLM integration.
 
 ## Features
 
@@ -9,6 +9,7 @@ This is the Node.js backend for Builder.ai, using Vercel's AI SDK for LLM integr
 - Task delegation system with multiple agent types
 - Project and agent management
 - Token usage and cost tracking
+- Fully typed with TypeScript
 
 ## Prerequisites
 
@@ -38,10 +39,34 @@ ANTHROPIC_API_KEY=your_anthropic_key
 DEFAULT_MODEL=gpt-4o-mini
 ```
 
-3. Start the server:
+3. Start the development server:
 
 ```bash
 npm run dev
+```
+
+4. Build the TypeScript files:
+
+```bash
+npm run build
+```
+
+5. Run the production server:
+
+```bash
+npm start
+```
+
+6. Run TypeScript type checking:
+
+```bash
+npm run typecheck
+```
+
+7. Run ESLint:
+
+```bash
+npm run lint
 ```
 
 ## Docker Setup
@@ -84,5 +109,5 @@ Connect to `ws://localhost:8000/ws` with the following message format:
 - `src/models/` - Sequelize models
 - `src/routes/` - API routes
 - `src/utils/` - Utility functions
-- `src/index.js` - Main application entry point
-- `src/websocket.js` - WebSocket handler
+- `src/index.ts` - Main application entry point
+- `src/websocket.ts` - WebSocket handler

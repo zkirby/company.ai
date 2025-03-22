@@ -1,18 +1,22 @@
 FROM node:20-slim
 
+LABEL maintainer="Builder.ai Team" \
+      description="Backend service for Builder.ai"
+
 WORKDIR /app
 
-# Copy package.json and package-lock.json
-COPY package*.json ./
+# Copy the entire application first
+COPY . .
 
-# Install dependencies
+# Install dependencies with detailed logging
 RUN npm install
 
-# Copy the rest of the application
-COPY . .
+# Build TypeScript with detailed output
+RUN npm run build && echo "TypeScript build completed"
 
 # Expose the port the app will run on
 EXPOSE 8000
+RUN echo "Exposed port 8000"
 
-# Command to run the application
-CMD ["npm", "start"]
+# Command to run the application with increased logging
+CMD ["sh", "-c", "echo 'Starting application...' && npm start"]
