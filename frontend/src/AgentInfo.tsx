@@ -117,11 +117,7 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
   useEffect(() => {
     const fetchAgentInfo = async () => {
       try {
-        const [key, type] = id.split("/");
-        const urlFriendlyId = `${type}|${key}`;
-        const response = await fetch(
-          `http://localhost:8000/info/${urlFriendlyId}`
-        );
+        const response = await fetch(`http://localhost:8000/agents/${id}`);
         if (!response.ok) {
           throw new Error("Failed to fetch agent info");
         }
@@ -134,7 +130,7 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
 
     fetchAgentInfo();
   }, [id]);
-  
+
   // Fetch available models
   useEffect(() => {
     const fetchModels = async () => {
@@ -152,7 +148,7 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
         setIsModelLoading(false);
       }
     };
-    
+
     fetchModels();
   }, []);
 
@@ -165,40 +161,33 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
       });
     }
   };
-  
+
   const handleModelChange = async (modelName: string) => {
     if (!modelName || !info) return;
-    
+
     try {
-      const [key, type] = id.split("/");
-      const urlFriendlyId = `${type}|${key}`;
-      
-      const response = await fetch(
-        `http://localhost:8000/agents/${urlFriendlyId}/model`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ model: modelName }),
-        }
-      );
-      
+      const response = await fetch(`http://localhost:8000/agents/${id}/model`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model: modelName }),
+      });
+
       if (!response.ok) {
         throw new Error("Failed to update model");
       }
-      
+
       // Update local state
       setInfo({
         ...info,
         model: modelName,
       });
-      
+
       // Add a system message indicating the model was changed
       setMessages((prevMessages) => {
         return [...prevMessages, `System: Model changed to ${modelName}`];
       });
-      
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update model");
     }
@@ -214,7 +203,9 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
 
   return (
     <InfoContainer>
-      <h1>{info.firstName || ''} {info.lastName || id}</h1>
+      <h1>
+        {info.firstName || ""} {info.lastName || id}
+      </h1>
       <InfoRow>
         <Label>Agent ID:</Label>
         <Value>{id}</Value>
@@ -224,7 +215,7 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
         {isModelLoading ? (
           <Value>Loading models...</Value>
         ) : (
-          <ModelSelect 
+          <ModelSelect
             value={info.model}
             onChange={(e) => handleModelChange(e.target.value)}
           >

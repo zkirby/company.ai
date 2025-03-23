@@ -1,18 +1,63 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import styled from "styled-components";
 import AgentInfo from "./AgentInfo";
-import { calculateBubblePlacements, drawChatBubble } from "./canvasUtils";
 import { AgentState } from "./types";
 import { useWebSocket } from "./WebSocketProvider";
 import { Stage, Container, Sprite, Graphics, Text, useApp } from "@pixi/react";
 import * as PIXI from "pixi.js";
+
+// Custom clickable container for Pixi v8 compatibility
+const ClickableContainer = ({
+  children,
+  position,
+  onClick,
+  width = 40,
+  height = 40,
+  ...props
+}) => {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const container = containerRef.current;
+
+    // Make container interactive
+    container.eventMode = "static";
+    container.cursor = "pointer";
+
+    // Set hit area
+    container.hitArea = new PIXI.Rectangle(
+      -width / 2,
+      -height / 2,
+      width,
+      height
+    );
+
+    // Add click handler
+    const handleClick = () => {
+      if (onClick) onClick();
+    };
+
+    container.on("pointerdown", handleClick);
+
+    return () => {
+      container.off("pointerdown", handleClick);
+    };
+  }, [onClick, width, height]);
+
+  return (
+    <Container ref={containerRef} position={position} {...props}>
+      {children}
+    </Container>
+  );
+};
 
 // Define constants
 const WORLD_WIDTH = 2000;
 const WORLD_HEIGHT = 1500;
 const AGENT_RADIUS = 10;
 const MARGIN = 50;
-const INTERACTION_DISTANCE = 60; // Distance between interacting agents
 
 // Office layout constants
 const DESK_WIDTH = 120;
@@ -65,10 +110,11 @@ const Agent = ({
   const colorValue = hexToNumber(agent.color);
 
   return (
-    <Container
+    <ClickableContainer
       position={[agent.x, agent.y]}
-      eventMode="static"
-      pointerdown={onClick}
+      onClick={onClick}
+      width={40}
+      height={60}
     >
       {/* Draw agent body */}
       <Graphics
@@ -115,7 +161,7 @@ const Agent = ({
       {agent.activity && Date.now() - agent.activity.timestamp < 10000 && (
         <MessageBubble message={agent.activity.message} color={agent.color} />
       )}
-    </Container>
+    </ClickableContainer>
   );
 };
 
@@ -188,7 +234,12 @@ const MessageBubble = ({
 const Office = () => {
   // Draw office components (walls, cubicles, desks, etc.)
   return (
-    <Container>
+    <ClickableContainer
+      position={[0, 0]}
+      onClick={() => console.log("Office clicked")}
+      width={CUBICLES_PER_ROW * CUBICLE_WIDTH + 400}
+      height={Math.ceil(20 / CUBICLES_PER_ROW) * CUBICLE_HEIGHT + 400}
+    >
       {/* Office floor */}
       <Graphics
         draw={(g) => {
@@ -285,7 +336,7 @@ const Office = () => {
           />
         );
       })}
-    </Container>
+    </ClickableContainer>
   );
 };
 
@@ -468,7 +519,6 @@ const World = ({
 };
 
 function Home() {
-  const [input, setInput] = useState("");
   const [messages, setMessages] = useState<[string, string, string][]>([]);
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(
@@ -897,9 +947,62 @@ function Home() {
 
   // Handle agent selection
   const handleAgentClick = useCallback((agentId: string) => {
-    console.log(agentId);
+    console.log("Agent clicked:", agentId);
     setSelectedAgent(agentId);
   }, []);
+
+  // Special handler for click events
+  useEffect(() => {
+    // Create a global click handler
+    const handleCanvasClick = (e: MouseEvent) => {
+      const canvas = document.querySelector("canvas");
+      if (!canvas) return;
+
+      // Get click coordinates relative to canvas
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      console.log("Canvas clicked at:", x, y);
+
+      // Get agents positioned at or near the click point
+      const clickedAgents = Object.entries(agents).filter(([_, agent]) => {
+        // Apply the stage's transform to get screen coordinates
+        const app = pixiAppRef.current;
+        if (!app || !app.stage) return false;
+
+        const stagePos = app.stage.position;
+        const stageScale = app.stage.scale;
+
+        const screenX = agent.x * stageScale.x + stagePos.x;
+        const screenY = agent.y * stageScale.y + stagePos.y;
+
+        // Check if click is within 30px of agent
+        const distance = Math.sqrt(
+          Math.pow(screenX - x, 2) + Math.pow(screenY - y, 2)
+        );
+        return distance < 30;
+      });
+
+      // If we clicked on an agent, select it
+      if (clickedAgents.length > 0) {
+        const [agentId] = clickedAgents[0];
+        console.log("Clicked on agent:", agentId);
+        setSelectedAgent(agentId);
+      }
+    };
+
+    const canvas = document.querySelector("canvas");
+    if (canvas) {
+      canvas.addEventListener("click", handleCanvasClick);
+    }
+
+    return () => {
+      if (canvas) {
+        canvas.removeEventListener("click", handleCanvasClick);
+      }
+    };
+  }, [agents, setSelectedAgent]);
 
   // Set up animation loop for agent movement and interaction
   useEffect(() => {
@@ -1062,13 +1165,6 @@ function Home() {
     return colors[Math.floor(Math.random() * colors.length)];
   };
 
-  const sendWsMessage = () => {
-    if (input.trim()) {
-      sendMessage("task", "delegator", input);
-      setInput("");
-    }
-  };
-
   const toggleMessageExpand = (messageId: string) => {
     setExpandedMessages((prev) => {
       const newSet = new Set(prev);
@@ -1139,6 +1235,9 @@ function Home() {
           }}
           width={stageSize.width}
           height={stageSize.height}
+          onMount={(app) => {
+            pixiAppRef.current = app;
+          }}
         >
           <World agents={agents} onAgentClick={handleAgentClick} />
         </Stage>
@@ -1189,19 +1288,6 @@ function Home() {
             </ModalContent>
           </Modal>
         )}
-
-        {/* Bottom input area */}
-        <BottomControls>
-          <InputContainer>
-            <TextInput
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask something..."
-              onKeyDown={(e) => e.key === "Enter" && sendWsMessage()}
-            />
-            <Button onClick={sendWsMessage}>Submit</Button>
-          </InputContainer>
-        </BottomControls>
 
         {/* Messages panel or agent info */}
         <SidePanelContainer>
@@ -1294,29 +1380,6 @@ const TopBar = styled.div`
   backdrop-filter: blur(5px);
 `;
 
-const BottomControls = styled.div`
-  position: absolute;
-  bottom: 1rem;
-  left: 1rem;
-  right: 1rem;
-  display: flex;
-  justify-content: center;
-  z-index: 10;
-`;
-
-const InputContainer = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  align-items: flex-end;
-  width: 70%;
-  max-width: 800px;
-  background-color: rgba(255, 255, 255, 0.8);
-  padding: 1rem;
-  border-radius: 10px;
-  backdrop-filter: blur(5px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-`;
-
 const SidePanelContainer = styled.div`
   position: absolute;
   top: 5rem;
@@ -1407,16 +1470,6 @@ const UsageStats = styled.div`
   font-size: 0.9rem;
   color: #666;
   margin-left: auto;
-`;
-
-const TextInput = styled.textarea`
-  padding: 0.5rem;
-  border: 1px solid #c1c1c1;
-  border-radius: 5px;
-  resize: vertical;
-  min-height: 80px;
-  width: 100%;
-  font-size: 1rem;
 `;
 
 const Input = styled.input`
