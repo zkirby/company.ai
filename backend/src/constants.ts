@@ -1,9 +1,3 @@
-// Agent types
-export enum AgentTypes {
-  DELEGATOR = 'delegator',
-  BUILDER = 'builder',
-}
-
 // Message types for content
 export enum ContentType {
   MESSAGE = 'MESSAGE',

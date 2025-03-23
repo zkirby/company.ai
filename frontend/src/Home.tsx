@@ -3,7 +3,7 @@ import styled from "styled-components";
 import AgentInfo from "./AgentInfo";
 import { AgentState } from "./types";
 import { useWebSocket } from "./WebSocketProvider";
-import { Stage, Container, Sprite, Graphics, Text, useApp } from "@pixi/react";
+import { Stage, Container, Graphics, Text, useApp } from "@pixi/react";
 import * as PIXI from "pixi.js";
 
 // Custom clickable container for Pixi v8 compatibility

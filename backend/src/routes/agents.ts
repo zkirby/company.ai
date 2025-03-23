@@ -92,18 +92,9 @@ router.put('/:id/model', async (req: Request, res: Response): Promise<Response> 
 
     // Try to update active agent if it exists
     try {
-      // Get the agent type and key from the database ID
-      const keyParts = agentId.split('|');
-      if (keyParts.length !== 2) {
-        return res.status(400).json({ error: 'Invalid agent key format' });
-      }
-
-      const agentType = keyParts[0];
-      if (!agentType) return res.status(400).json({ error: 'missing agent type ' });
-
       // Find correct agent in runtime and update its model
       try {
-        const agentInstance = getAgent(agentType) as BaseAgent;
+        const agentInstance = (await getAgent(agentId)) as BaseAgent;
         if (agentInstance) {
           await agentInstance.updateModel(modelName);
         }

@@ -100,12 +100,17 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
 
   useEffect(() => {
     subscribe("message_stream", id, (agent, payload) => {
-      console.log(payload);
       setMessages((prevMessages) => {
         if (prevMessages.length % 2 === 0) {
           const last = prevMessages[prevMessages.length - 1];
           return [...prevMessages.slice(0, -1), last + payload];
         }
+        return [...prevMessages, payload];
+      });
+    });
+
+    subscribe("MESSAGE", id, (_, payload) => {
+      setMessages((prevMessages) => {
         return [...prevMessages, payload];
       });
     });

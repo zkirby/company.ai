@@ -28,8 +28,7 @@ export function setupWebSocketHandler(app: expressWs.Application): void {
 
         switch (topic) {
           case UserTopics.CONVERSATION:
-            // await handleConversation(id, content);
-            console.log('handling conversation!');
+            await handleConversation(id, content);
           case UserTopics.TASK:
             await handleDelegatorTask(content);
           default:

@@ -1,8 +1,8 @@
-import { Delegator } from './Delegator.js';
-import { Builder } from './Builder.js';
 import { BaseAgent } from './BaseAgent.js';
-import { AgentTypes, ContentType } from '../constants.js';
+import { ContentType } from '../constants.js';
 import { logMessage } from '../utils/logger.js';
+import { Agent } from '../models/index.js';
+import { ProductManager } from './ProductManager.js';
 
 // Cache for active agents
 const agentCache = new Map<string, BaseAgent>();
@@ -12,30 +12,31 @@ const agentCache = new Map<string, BaseAgent>();
  * @param agentType - Type of agent to get
  * @returns The agent instance
  */
-export function getAgent(agentType: string): BaseAgent {
+export async function getAgent(id: string): Promise<BaseAgent> {
   // Check if agent exists in cache
-  if (agentCache.has(agentType)) {
-    const agent = agentCache.get(agentType);
+  if (agentCache.has(id)) {
+    const agent = agentCache.get(id);
     if (agent) {
       return agent;
     }
   }
 
-  // Create new agent based on type
-  let agent: BaseAgent;
-  switch (agentType) {
-    case AgentTypes.DELEGATOR:
-      agent = new Delegator();
+  const params = await Agent.findOne({
+    where: {
+      id,
+    },
+  });
+  if (!params) throw new Error("couldn't find agent for id");
+
+  let agent!: BaseAgent;
+  switch (params.agentType) {
+    case ProductManager.Type:
+      agent = new ProductManager(params);
       break;
-    case AgentTypes.BUILDER:
-      agent = new Builder();
-      break;
-    default:
-      throw new Error(`Unknown agent type: ${agentType}`);
   }
 
   // Add to cache
-  agentCache.set(agentType, agent);
+  agentCache.set(id, agent);
 
   return agent;
 }
@@ -46,10 +47,10 @@ export function getAgent(agentType: string): BaseAgent {
  * @param source - Source of the conversation
  * @param message - The conversation message
  */
-export async function handleConversation(agentType: string, message: string): Promise<void> {
+export async function handleConversation(id: string, prompt: string): Promise<void> {
   try {
-    const agent = getAgent(agentType);
-    await agent.handleConversation(message);
+    const agent = await getAgent(id);
+    await agent.call([{ role: 'user', content: prompt }]);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logMessage({
@@ -65,15 +66,15 @@ export async function handleConversation(agentType: string, message: string): Pr
  * @param message - The task message
  */
 export async function handleDelegatorTask(message: string): Promise<void> {
-  try {
-    const delegator = getAgent(AgentTypes.DELEGATOR) as Delegator;
-    await delegator.handleDelegatorTask(message);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logMessage({
-      source: 'AGENT_MANAGER',
-      content: `Error handling delegator task: ${errorMessage}`,
-      contentType: ContentType.ERROR,
-    });
-  }
+  // try {
+  //   const delegator = getAgent() as Delegator;
+  //   await delegator.handleDelegatorTask(message);
+  // } catch (error) {
+  //   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+  //   logMessage({
+  //     source: 'AGENT_MANAGER',
+  //     content: `Error handling delegator task: ${errorMessage}`,
+  //     contentType: ContentType.ERROR,
+  //   });
+  // }
 }
