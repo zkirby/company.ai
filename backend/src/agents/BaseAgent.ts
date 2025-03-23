@@ -324,7 +324,7 @@ export class BaseAgent {
    * @param source - Source of the conversation
    * @param message - The conversation message
    */
-  public async handleConversation(source: string, message: string): Promise<void> {
+  public async handleConversation(message: string): Promise<void> {
     // Default implementation just streams the response
     const generator = this.stream(message);
     for await (const _ of generator) {

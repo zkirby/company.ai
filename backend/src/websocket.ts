@@ -18,55 +18,23 @@ export function setupWebSocketHandler(app: expressWs.Application): void {
     clients.add(ws);
     logMessage({
       source: 'RUNTIME',
-      content: 'Client connected',
+      content: 'Connected, welcome!',
       contentType: ContentType.SYSTEM,
     });
 
     ws.on('message', async (message: string) => {
       try {
-        // Handle incoming message from client
-        logMessage({
-          source: 'RUNTIME',
-          content: 'start',
-          contentType: ContentType.SYSTEM,
-        });
+        const { topic, id, content } = getMessageParts(message);
 
-        // Parse incoming message using format: topic[$]id[$]message
-        const parts = message.split('[$]');
-        if (parts.length !== 3) {
-          throw new Error('Invalid message format');
+        switch (topic) {
+          case UserTopics.CONVERSATION:
+            // await handleConversation(id, content);
+            console.log('handling conversation!');
+          case UserTopics.TASK:
+            await handleDelegatorTask(content);
+          default:
+            throw new Error('unknown topic: ' + topic);
         }
-
-        const [topic, id, content] = parts;
-        if (!id) throw new Error('no id');
-
-        if (topic === UserTopics.CONVERSATION) {
-          // Handle conversation with an agent
-          const idParts = id.split('/');
-          if (idParts.length !== 2) {
-            throw new Error('Invalid conversation ID format');
-          }
-
-          const [agent, source] = idParts;
-          if (!agent || !source || !content) throw new Error('invalid message');
-          await handleConversation(agent, source, content);
-        } else if (topic === UserTopics.TASK) {
-          // Handle a delegator task
-          if (!content) throw new Error('invalid message');
-          await handleDelegatorTask(content);
-        } else {
-          logMessage({
-            source: 'RUNTIME',
-            content: `Unknown topic: ${topic}`,
-            contentType: ContentType.ERROR,
-          });
-        }
-
-        logMessage({
-          source: 'RUNTIME',
-          content: 'end',
-          contentType: ContentType.SYSTEM,
-        });
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         logMessage({
@@ -82,7 +50,7 @@ export function setupWebSocketHandler(app: expressWs.Application): void {
       clients.delete(ws);
       logMessage({
         source: 'RUNTIME',
-        content: 'Client disconnected',
+        content: 'Disconnected, bye!',
         contentType: ContentType.SYSTEM,
       });
     });
@@ -105,3 +73,15 @@ export async function broadcastMessage(message: string | object): Promise<void> 
     }
   }
 }
+
+const getMessageParts = (message: string) => {
+  // Parse incoming message using format: topic[$]id[$]message
+  const parts = message.split('[$]');
+  if (parts.length !== 3) {
+    throw new Error('Invalid message format');
+  }
+
+  const [topic, id, content] = parts;
+  if (!id || !topic || !content) throw new Error(`missing part: ${{ topic, id, content }}`);
+  return { topic: topic as UserTopics, id, content };
+};

@@ -46,14 +46,10 @@ export function getAgent(agentType: string): BaseAgent {
  * @param source - Source of the conversation
  * @param message - The conversation message
  */
-export async function handleConversation(
-  agentType: string,
-  source: string,
-  message: string
-): Promise<void> {
+export async function handleConversation(agentType: string, message: string): Promise<void> {
   try {
     const agent = getAgent(agentType);
-    await agent.handleConversation(source, message);
+    await agent.handleConversation(message);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logMessage({
