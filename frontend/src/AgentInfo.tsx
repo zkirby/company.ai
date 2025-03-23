@@ -9,6 +9,8 @@ interface AgentInfoProps {
 interface AgentStats {
   cost: number;
   model: string;
+  firstName: string;
+  lastName: string;
   input_tokens: number;
   output_tokens: number;
 }
@@ -212,7 +214,11 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ id }) => {
 
   return (
     <InfoContainer>
-      <h1>About {id}</h1>
+      <h1>{info.firstName || ''} {info.lastName || id}</h1>
+      <InfoRow>
+        <Label>Agent ID:</Label>
+        <Value>{id}</Value>
+      </InfoRow>
       <InfoRow>
         <Label>Model:</Label>
         {isModelLoading ? (

@@ -3,6 +3,8 @@ export interface AgentState {
   y: number;
   color: string;
   type?: string;
+  firstName?: string;
+  lastName?: string;
   targetX?: number;
   targetY?: number;
   isMoving?: boolean;

@@ -91,7 +91,11 @@ const Agent = ({
 
       {/* Agent name label */}
       <Text
-        text={name}
+        text={
+          agent.firstName && agent.lastName
+            ? `${agent.firstName} ${agent.lastName}`
+            : name
+        }
         anchor={{ x: 0.5, y: 0.5 }}
         position={[0, -(AGENT_RADIUS + 10)]}
         style={{ fontSize: 12, fill: 0x000000 }}
@@ -510,6 +514,7 @@ function Home() {
   // Fetch usage stats when project changes
   useEffect(() => {
     if (selectedProject) {
+      setAgents({});
       fetchUsageStats();
     }
   }, [selectedProject]);
@@ -522,6 +527,24 @@ function Home() {
       const data = await response.json();
       setTotalTokens(data.totalTokens);
       setTotalCost(data.totalCost);
+      setAgents((prev) => {
+        const updatedAgents = { ...prev };
+        data.agents.forEach((a) => {
+          if (!updatedAgents[a.id]) {
+            const cubicle = assignCubicle(a.id, updatedAgents);
+            updatedAgents[a.id] = {
+              x: cubicle.x,
+              y: cubicle.y,
+              color: getRandomColor(),
+              cubicleIndex: cubicle.cubicleIndex,
+              isSitting: true,
+              firstName: a.firstName,
+              lastName: a.lastName,
+            };
+          }
+        });
+        return updatedAgents;
+      });
     } catch (error) {
       console.error("Error fetching usage stats:", error);
     }
@@ -618,7 +641,7 @@ function Home() {
   };
 
   useEffect(() => {
-    subscribe("interact", "home", (agent, payload) => {
+    subscribe("INTERACT", "home", (agent, payload) => {
       setAgents((prev) => {
         const updatedAgents = { ...prev };
 
@@ -632,6 +655,33 @@ function Home() {
             cubicleIndex: cubicle.cubicleIndex,
             isSitting: true,
           };
+
+          // Fetch agent info to get name
+          const fetchAgentInfo = async () => {
+            try {
+              const [key, type] = agent.split("/");
+              const urlFriendlyId = `${type}|${key}`;
+              const response = await fetch(
+                `http://localhost:8000/info/${urlFriendlyId}`
+              );
+              if (response.ok) {
+                const data = await response.json();
+                if (data.firstName && data.lastName) {
+                  setAgents((currentAgents) => ({
+                    ...currentAgents,
+                    [agent]: {
+                      ...currentAgents[agent],
+                      firstName: data.firstName,
+                      lastName: data.lastName,
+                    },
+                  }));
+                }
+              }
+            } catch (error) {
+              console.error("Error fetching agent info:", error);
+            }
+          };
+          fetchAgentInfo();
         }
 
         if (!updatedAgents[payload]) {
@@ -643,6 +693,33 @@ function Home() {
             cubicleIndex: cubicle.cubicleIndex,
             isSitting: true,
           };
+
+          // Fetch agent info to get name
+          const fetchAgentInfo = async () => {
+            try {
+              const [key, type] = payload.split("/");
+              const urlFriendlyId = `${type}|${key}`;
+              const response = await fetch(
+                `http://localhost:8000/info/${urlFriendlyId}`
+              );
+              if (response.ok) {
+                const data = await response.json();
+                if (data.firstName && data.lastName) {
+                  setAgents((currentAgents) => ({
+                    ...currentAgents,
+                    [payload]: {
+                      ...currentAgents[payload],
+                      firstName: data.firstName,
+                      lastName: data.lastName,
+                    },
+                  }));
+                }
+              }
+            } catch (error) {
+              console.error("Error fetching agent info:", error);
+            }
+          };
+          fetchAgentInfo();
         }
 
         // Get the target agent's cubicle
@@ -669,10 +746,40 @@ function Home() {
       ]);
     });
 
-    subscribe("create", "home", (agent, payload) => {
+    subscribe("CREATE", "home", (agent, payload) => {
       setAgents((prev) => {
         if (!prev[agent]) {
           const cubicle = assignCubicle(agent, prev);
+
+          // Fetch agent info to get name
+          const fetchAgentInfo = async () => {
+            try {
+              const [key, type] = agent.split("/");
+              const urlFriendlyId = `${type}|${key}`;
+              const response = await fetch(
+                `http://localhost:8000/info/${urlFriendlyId}`
+              );
+              if (response.ok) {
+                const data = await response.json();
+                if (data.firstName && data.lastName) {
+                  setAgents((currentAgents) => ({
+                    ...currentAgents,
+                    [agent]: {
+                      ...currentAgents[agent],
+                      firstName: data.firstName,
+                      lastName: data.lastName,
+                    },
+                  }));
+                }
+              }
+            } catch (error) {
+              console.error("Error fetching agent info:", error);
+            }
+          };
+
+          // Call the fetch function
+          fetchAgentInfo();
+
           return {
             ...prev,
             [agent]: {
@@ -695,7 +802,7 @@ function Home() {
       ]);
     });
 
-    subscribe("info", "home", (_, payload) => {
+    subscribe("INFO", "home", (_, payload) => {
       try {
         const info = JSON.parse(payload);
         setTotalTokens((prev) => prev + info.inputTokens + info.outputTokens);
@@ -705,12 +812,42 @@ function Home() {
       }
     });
 
-    subscribe("message", "home", (agent, payload) => {
+    subscribe("MESSAGE", "home", (agent, payload) => {
       // Add agent if it doesn't exist
       setAgents((prev) => {
         if (!prev[agent]) {
           // Assign a cubicle to the new agent
           const cubicle = assignCubicle(agent, prev);
+
+          // Fetch agent info to get name
+          const fetchAgentInfo = async () => {
+            try {
+              const [key, type] = agent.split("/");
+              const urlFriendlyId = `${type}|${key}`;
+              const response = await fetch(
+                `http://localhost:8000/info/${urlFriendlyId}`
+              );
+              if (response.ok) {
+                const data = await response.json();
+                if (data.firstName && data.lastName) {
+                  setAgents((currentAgents) => ({
+                    ...currentAgents,
+                    [agent]: {
+                      ...currentAgents[agent],
+                      firstName: data.firstName,
+                      lastName: data.lastName,
+                    },
+                  }));
+                }
+              }
+            } catch (error) {
+              console.error("Error fetching agent info:", error);
+            }
+          };
+
+          // Call the fetch function
+          fetchAgentInfo();
+
           return {
             ...prev,
             [agent]: {
@@ -742,7 +879,7 @@ function Home() {
       setMessages((prev) => [[agent, "message", payload], ...prev]);
     });
 
-    subscribe("system", "home", (agent, payload) => {
+    subscribe("SYSTEM", "home", (agent, payload) => {
       setMessages((prev) => [[agent, "system", payload], ...prev]);
     });
 
@@ -760,6 +897,7 @@ function Home() {
 
   // Handle agent selection
   const handleAgentClick = useCallback((agentId: string) => {
+    console.log(agentId);
     setSelectedAgent(agentId);
   }, []);
 

@@ -33,6 +33,8 @@ router.get('/:id', async (req: Request, res: Response): Promise<Response> => {
       return res.status(200).json({
         cost: 0,
         model: 'none',
+        firstName: '',
+        lastName: '',
         inputTokens: 0,
         outputTokens: 0,
       });
@@ -41,6 +43,8 @@ router.get('/:id', async (req: Request, res: Response): Promise<Response> => {
     return res.json({
       cost: agent.cost,
       model: agent.model,
+      firstName: agent.firstName || '',
+      lastName: agent.lastName || '',
       inputTokens: agent.inputTokens,
       outputTokens: agent.outputTokens,
     });

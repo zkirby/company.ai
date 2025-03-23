@@ -40,8 +40,8 @@ export async function initDB(): Promise<boolean> {
     console.log('Database connection established successfully.');
 
     // Sync models with database (development only)
-    await sequelize.sync();
-    console.log('Database synchronized.');
+    await sequelize.sync({ alter: true });
+    console.log('Database synchronized with model changes.');
 
     return true;
   } catch (error) {

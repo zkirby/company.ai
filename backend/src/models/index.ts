@@ -33,8 +33,11 @@ export interface AgentAttributes
   extends Model<InferAttributes<AgentAttributes>, InferCreationAttributes<AgentAttributes>> {
   id: string;
   projectId: ForeignKey<Project['id']>;
+  agentType: CreationOptional<string>;
   cost: CreationOptional<number>;
   model: CreationOptional<string>;
+  firstName: CreationOptional<string>;
+  lastName: CreationOptional<string>;
   inputTokens: CreationOptional<number>;
   outputTokens: CreationOptional<number>;
   createdAt: CreationOptional<Date>;
@@ -49,6 +52,9 @@ export class Agent
   declare projectId: ForeignKey<Project['id']>;
   declare cost: CreationOptional<number>;
   declare model: CreationOptional<string>;
+  declare firstName: CreationOptional<string>;
+  declare lastName: CreationOptional<string>;
+  declare agentType: CreationOptional<string>;
   declare inputTokens: CreationOptional<number>;
   declare outputTokens: CreationOptional<number>;
   declare createdAt: CreationOptional<Date>;
@@ -106,6 +112,21 @@ export function defineModels(): {
       model: {
         type: DataTypes.STRING,
         defaultValue: 'NO MODEL',
+      },
+      firstName: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'first_name',
+      },
+      lastName: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'last_name',
+      },
+      agentType: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        field: 'agent_type',
       },
       inputTokens: {
         type: DataTypes.INTEGER,

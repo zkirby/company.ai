@@ -44,6 +44,40 @@ export class BaseAgent {
   }
 
   /**
+   * Generate a random first name
+   */
+  private _generateRandomFirstName(): string {
+    const firstNames = [
+      'Alex', 'Bailey', 'Casey', 'Dakota', 'Elliott', 'Finley', 'Gray', 'Harper',
+      'Jordan', 'Kai', 'Logan', 'Morgan', 'Noah', 'Parker', 'Quinn', 'Riley',
+      'Sage', 'Taylor', 'Avery', 'Blake', 'Charlie', 'Drew', 'Emerson', 'Frankie',
+      'Jamie', 'Kelly', 'Lee', 'Mason', 'Noel', 'Peyton', 'Reese', 'Skyler',
+      'Tatum', 'Whitney', 'Zion', 'Phoenix', 'River', 'Rowan', 'Sawyer', 'Sidney'
+    ];
+    const index = Math.floor(Math.random() * firstNames.length);
+    return firstNames[index] || 'Unknown';  // Fallback in case of undefined
+  }
+
+  /**
+   * Generate a random last name
+   */
+  private _generateRandomLastName(): string {
+    const lastNames = [
+      'Smith', 'Johnson', 'Williams', 'Jones', 'Brown', 'Davis', 'Miller', 'Wilson',
+      'Moore', 'Taylor', 'Anderson', 'Thomas', 'Jackson', 'White', 'Harris', 'Martin',
+      'Thompson', 'Garcia', 'Martinez', 'Robinson', 'Clark', 'Rodriguez', 'Lewis', 'Lee',
+      'Walker', 'Hall', 'Allen', 'Young', 'Hernandez', 'King', 'Wright', 'Lopez',
+      'Hill', 'Scott', 'Green', 'Adams', 'Baker', 'Gonzalez', 'Nelson', 'Carter',
+      'Mitchell', 'Perez', 'Roberts', 'Turner', 'Phillips', 'Campbell', 'Parker', 'Evans',
+      'Edwards', 'Collins', 'Stewart', 'Sanchez', 'Morris', 'Rogers', 'Reed', 'Cook',
+      'Morgan', 'Bell', 'Murphy', 'Bailey', 'Rivera', 'Cooper', 'Richardson', 'Cox',
+      'Howard', 'Ward', 'Torres', 'Peterson', 'Gray', 'Ramirez', 'James', 'Watson'
+    ];
+    const index = Math.floor(Math.random() * lastNames.length);
+    return lastNames[index] || 'Unknown';  // Fallback in case of undefined
+  }
+
+  /**
    * Initialize agent record in the database
    */
   private async _initializeAgent(): Promise<void> {
@@ -57,14 +91,26 @@ export class BaseAgent {
       });
 
       if (!existingAgent) {
+        // Generate random names
+        const firstName = this._generateRandomFirstName();
+        const lastName = this._generateRandomLastName();
+
         // Create a new agent record
         await Agent.create({
           id: this.id,
           projectId: GLOBAL_STORE.PROJECT_ID,
           model: this.model,
+          firstName,
+          lastName,
           cost: 0,
           inputTokens: 0,
           outputTokens: 0,
+        });
+
+        logMessage({
+          source: this.id,
+          content: `Agent initialized with name: ${firstName} ${lastName}`,
+          contentType: ContentType.INFO,
         });
       }
     } catch (error) {

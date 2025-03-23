@@ -18,5 +18,5 @@ RUN npm run build && echo "TypeScript build completed"
 EXPOSE 8000
 RUN echo "Exposed port 8000"
 
-# Command to run the application with increased logging
-CMD ["sh", "-c", "echo 'Starting application...' && npm start"]
+# Command to run the application in development mode with hot reloading
+CMD ["sh", "-c", "echo 'Starting application in dev mode...' && npm run dev"]

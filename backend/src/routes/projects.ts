@@ -72,6 +72,15 @@ router.get('/active', async (_req: Request, res: Response): Promise<Response> =>
       totalOutputTokens,
       totalTokens: totalInputTokens + totalOutputTokens,
       totalCost,
+      agents: agents.map((a) => ({
+        id: a.id,
+        cost: a.cost,
+        model: a.model,
+        firstName: a.firstName || '',
+        lastName: a.lastName || '',
+        inputTokens: a.inputTokens,
+        outputTokens: a.outputTokens,
+      })),
     };
 
     return res.json(projectWithStats);
